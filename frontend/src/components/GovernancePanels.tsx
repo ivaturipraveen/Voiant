@@ -145,8 +145,23 @@ export function GovernanceTrail({ run }: { run: AgentRunResponse | null }) {
 }
 
 export function AssumptionsFooter({ run }: { run: AgentRunResponse | null }) {
-  const assumptions = run?.report?.assumptions as Assumption[] | undefined;
-  if (!run || !assumptions || assumptions.length === 0) return null;
+  if (!run) return null;
+  let assumptions = run.report?.assumptions as Assumption[] | undefined;
+  // Synthesis ("both") reports carry assumptions inside each sub-report — gather + dedupe.
+  if ((!assumptions || assumptions.length === 0) && run.report?.reports) {
+    const seen = new Set<string>();
+    const merged: Assumption[] = [];
+    for (const rep of Object.values(run.report.reports as Record<string, { assumptions?: Assumption[] }>)) {
+      for (const a of rep?.assumptions ?? []) {
+        if (!seen.has(a.id)) {
+          seen.add(a.id);
+          merged.push(a);
+        }
+      }
+    }
+    assumptions = merged;
+  }
+  if (!assumptions || assumptions.length === 0) return null;
   return (
     <div className="rounded-xl border border-amber-200 bg-amber-50 p-3">
       <div className="mb-1 text-xs font-semibold uppercase tracking-wider text-amber-700">
