@@ -14,12 +14,21 @@ os.environ.setdefault("ANTHROPIC_API_KEY", "")
 from app.config_layer.loader import ConfigLoader  # noqa: E402
 
 BACKEND = Path(__file__).resolve().parent.parent
+SEED_YAML = BACKEND / "config" / "client_rapid7.yaml"
+
+
+def make_config_loader(tmp_path) -> ConfigLoader:
+    """A DB-backed ConfigLoader over a fresh temp SQLite, seeded from the YAML."""
+    from app.db import init_schema, make_engine
+
+    engine = make_engine(None, tmp_path / "voiant.sqlite")
+    init_schema(engine)
+    return ConfigLoader(engine, "rapid7", seed_path=SEED_YAML)
 
 
 @pytest.fixture
-def config():
-    loader = ConfigLoader(BACKEND / "config" / "client_rapid7.yaml")
-    return loader.load()
+def config(tmp_path):
+    return make_config_loader(tmp_path).load()
 
 
 @pytest.fixture

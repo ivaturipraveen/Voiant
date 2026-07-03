@@ -11,6 +11,7 @@ Tables:
   lineage           – every field read (who/what/when)
   audit_inference   – every analysis run (hash, config version, counts)
   audit_llm         – every Claude call (model, fell_back)
+  client_config     – versioned client configuration ledger (one active row per client)
 """
 
 from __future__ import annotations
@@ -107,6 +108,19 @@ audit_llm = Table(
 )
 
 
+client_config = Table(
+    "client_config", metadata,
+    Column("id", Integer, primary_key=True, autoincrement=True),
+    Column("client_id", String(64), nullable=False, index=True),
+    Column("version", Integer, nullable=False),
+    Column("data", JSON, nullable=False),  # full ClientConfig.model_dump(mode="json")
+    Column("source", String(32)),  # 'seed' | 'update' | 'reseed'
+    Column("is_active", Boolean, nullable=False),
+    Column("created_at", DateTime),
+    UniqueConstraint("client_id", "version", name="uq_client_config_version"),
+)
+
+
 def normalize_url(url: str) -> str:
     """Ensure a psycopg2 driver for plain postgres URLs (Render gives `postgresql://`)."""
     if url.startswith("postgresql://"):
@@ -129,4 +143,27 @@ def make_engine(database_url: str | None, sqlite_path: Path) -> Engine:
 
 
 def init_schema(engine: Engine) -> None:
+    """Create all tables directly from the metadata (no migrations).
+
+    Used by the test suite (fast, throwaway DBs). The application does NOT call this —
+    it runs `upgrade_to_head()` so Alembic is the single owner of the real schema and
+    never races with create_all. See migrations/README.md.
+    """
     metadata.create_all(engine)
+
+
+def upgrade_to_head() -> None:
+    """Bring the database schema to the latest Alembic revision.
+
+    This is how the app provisions/updates its schema at startup: Alembic owns the
+    schema end-to-end, so adding a table + migration never collides with create_all.
+    On a fresh DB it creates everything; on an up-to-date DB it's a no-op. The DB URL
+    is derived inside migrations/env.py from the same settings the app uses.
+    """
+    from alembic import command
+    from alembic.config import Config
+
+    backend_root = Path(__file__).resolve().parent.parent
+    cfg = Config(str(backend_root / "alembic.ini"))
+    cfg.set_main_option("script_location", str(backend_root / "migrations"))
+    command.upgrade(cfg, "head")

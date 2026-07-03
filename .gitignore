@@ -1,12 +1,19 @@
 # ─── Python ───────────────────────────────────────────────────────────────
+.venv/
 backend/.venv/
 __pycache__/
 *.pyc
+*.egg-info/
 .pytest_cache/
 .ruff_cache/
+.mypy_cache/
+
+# uv: commit uv.lock (this is an application, not a library) — do NOT ignore it.
 
 # ─── Generated data / runtime artifacts (regenerated on boot) ───────────────
-backend/data/*.sqlite
+# Local SQLite DB (+ its -journal/-wal/-shm side-files) and cached snapshots.
+# Schema is provisioned by Alembic at startup; the migrations themselves ARE tracked.
+backend/data/*.sqlite*
 backend/data/snapshot.json
 backend/data/reps.json
 backend/data/reps.csv
@@ -19,6 +26,11 @@ backend/data/reps.csv
 # ─── Node / frontend build ──────────────────────────────────────────────────
 frontend/node_modules/
 frontend/dist/
+*.tsbuildinfo
+
+# ─── Editors / IDEs ─────────────────────────────────────────────────────────
+.vscode/
+.idea/
 
 # ─── OS ─────────────────────────────────────────────────────────────────────
 .DS_Store

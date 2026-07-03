@@ -121,7 +121,8 @@ Example: intent = `add_heads`, params = `{ n: 5, region: "West" }`.
   - **analyst** → initials (`L. R.`)
   - **viewer** → stays fully redacted (token kept)
 - **Every field read is logged** to the **`lineage`** table (who/which agent read which field,
-  when, masked or not). The masking policy per role lives in `config/client_rapid7.yaml → rbac_roles`.
+  when, masked or not). The masking policy per role lives in the DB-backed client config
+  (`client_config` table → `rbac_roles`, seeded from `config/client_rapid7.yaml`).
 
 Example (admin): 80 reps rehydrated to full names; 160 field reads (name + email × 80) logged.
 

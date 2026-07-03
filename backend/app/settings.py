@@ -27,6 +27,9 @@ class Settings(BaseSettings):
     bright_shield_timeout_seconds: int = 60
 
     # Application
+    voiant_client_id: str = "rapid7"
+    # Seed config: the DB (client_config table) is authoritative at runtime; this YAML
+    # is the human-readable starting point used to seed a client on first boot.
     voiant_config_path: str = "config/client_rapid7.yaml"
     voiant_data_dir: str = "data"
     voiant_dataset_seed: int = 42

@@ -46,19 +46,37 @@ under field-level RBAC. Every field read is recorded to data lineage.
 
 ### 1. Backend (FastAPI)
 
+Uses [**uv**](https://docs.astral.sh/uv/) for env + dependency management.
+
 ```bash
 cd backend
-python3.12 -m venv .venv && source .venv/bin/activate
-pip install -r requirements.txt
+uv sync                       # creates .venv and installs all deps (incl. alembic)
 cp .env.example .env          # then edit .env (see below)
-uvicorn app.main:app --reload --port 8000
+uv run uvicorn app.main:app --reload --port 8000
 ```
 
 - API docs: <http://localhost:8000/docs>
 - Health / platform signals: <http://localhost:8000/health>
 
-On startup the seeded synthetic dataset (80 reps) is generated and ingested through
-Shield automatically.
+On startup the schema is brought to the latest **Alembic** migration automatically
+(`db.upgrade_to_head()` — creates all tables on a fresh DB, no-op when current), the
+client config is seeded from `config/client_rapid7.yaml` into the DB on first boot,
+and the seeded synthetic dataset (80 reps) is ingested through Shield. No manual
+migration step is needed for a fresh database.
+
+#### Database migrations (Alembic)
+
+Schema changes are tracked in `migrations/`. The app auto-applies them at startup, but
+you can also run them by hand:
+
+```bash
+uv run alembic upgrade head        # apply pending migrations
+uv run alembic current             # show the DB's current revision
+uv run alembic revision --autogenerate -m "describe change"   # after editing app/db.py
+```
+
+See [`backend/migrations/README.md`](backend/migrations/README.md) for the full workflow
+(including the one-time `alembic stamp head` needed for a DB created before migrations existed).
 
 #### `.env` keys that matter
 
@@ -92,8 +110,9 @@ npm run dev        # http://localhost:5173  (proxies /api → :8000)
 3. Switch the **Role** (analyst → admin → viewer) and watch rep names re-mask live
    (initials → full → fully redacted) — the RBAC + Shield boundary in action.
 4. Open the **Client Config — Interpretation Ledger** panel (the `$130M ≠ $166M`
-   rule). Edit `backend/config/client_rapid7.yaml`, hit **Reload ↻** — the config
-   version bumps with no redeploy.
+   rule). Edit a value and save — the change is **persisted to the DB as a new config
+   version** with no redeploy. (`client_rapid7.yaml` is only the initial seed used to
+   populate the DB on first boot; the DB is authoritative at runtime.)
 5. **Upload & mask through Shield**: drop a CSV/Excel of reps; PII is tokenized on the
    way in. The **Audit & Data Lineage** panel shows which fields each agent read.
 6. Note the **Assumptions to confirm** footer under every analysis.
@@ -104,9 +123,8 @@ npm run dev        # http://localhost:5173  (proxies /api → :8000)
 
 ```bash
 cd backend
-source .venv/bin/activate
-pytest            # engine golden-master, determinism, Shield round-trip, connector, config reload
-ruff check app tests
+uv run pytest         # engine golden-master, determinism, Shield round-trip, connector, DB-backed config
+uv run ruff check app tests
 ```
 
 ```bash
