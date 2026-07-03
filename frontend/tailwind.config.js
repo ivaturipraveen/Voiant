@@ -27,8 +27,8 @@ export default {
         },
       },
       fontFamily: {
-        sans: ["Inter", "system-ui", "Arial", "sans-serif"],
-        display: ["Sora", "Inter", "system-ui", "sans-serif"],
+        sans: ["'Source Sans 3'", "system-ui", "Arial", "sans-serif"],
+        display: ["Figtree", "'Source Sans 3'", "system-ui", "sans-serif"],
         mono: ["'JetBrains Mono'", "ui-monospace", "SFMono-Regular", "Menlo", "monospace"],
       },
       boxShadow: {
