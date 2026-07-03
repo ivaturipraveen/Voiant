@@ -12,24 +12,49 @@ each step is verifiable in the code.
 
 ---
 
-## The pipeline at a glance
+## The flow at a glance
 
+The colour tells the story: **teal = AI (Claude)**, **navy = deterministic engine**,
+**grey = secure I/O**. Only two steps are AI — *understand* the question and *explain* the
+answer. Everything that touches a number is deterministic.
+
+```mermaid
+flowchart TD
+    B["🗄️ 0 · Data loaded ONCE at boot<br/><small>reps table → Shield masking → in-memory snapshot</small>"]:::io
+    Q["💬 1 · Question received<br/><small>POST /agents/chat · question + role + session</small>"]:::io
+    C["🧭 2 · Classify — AI<br/><small>Haiku picks the agent by MEANING (no keywords)</small>"]:::ai
+    P["🔎 3 · Parse input<br/><small>regex + keywords → n, region (deterministic)</small>"]:::eng
+    R["🛡️ 4 · Shielded read<br/><small>PII re-hydrated per role · every read logged</small>"]:::io
+    E["🧮 5 · Compute — engine<br/><small>pure Python: all numbers + findings + hash</small>"]:::eng
+    A["📦 6 · Assemble payload<br/><small>aggregates only · 0 raw rows · 0 PII</small>"]:::eng
+    M["🤖 7 · Model explains — AI<br/><small>Opus/Sonnet narrate; never compute</small>"]:::ai
+    D["✅ 8 · Audit &amp; respond<br/><small>logged · charts render from the real report</small>"]:::io
+
+    B --> Q --> C --> P --> R --> E --> A --> M --> D
+
+    classDef ai fill:#34B7AD,stroke:#268E86,color:#ffffff;
+    classDef eng fill:#211E56,stroke:#16133A,color:#ffffff;
+    classDef io fill:#EEF1F7,stroke:#5A6B92,color:#1B1A38;
 ```
-1. Question        →  POST /agents/chat {question, role, session_id}
-2. Classify        →  small model (Haiku) picks the agent — by MEANING, no keywords
-3. Parse input     →  deterministic regex/keywords pull what-if params (n, region)
-4. Shielded read   →  masked snapshot read; PII re-hydrated per RBAC role; every read logged
-5. Compute         →  pure-Python engine computes every number + finding; emits a hash
-6. Assemble payload→  compact JSON of aggregates+findings+question — 0 raw rows, 0 PII
-7. Model explains  →  Claude narrates the numbers (Opus for what-ifs, Sonnet default)
-8. Audit & respond →  run logged; report + narrative + trace returned; charts render
-```
 
-Steps **2** and **7** are the only AI touchpoints. Steps **3–6** are deterministic.
-
-Throughout, we use one concrete example:
+Throughout the steps below, we follow one concrete example:
 
 > **Question:** *"What if we add 5 heads in the West region?"* · **Role:** admin
+
+```mermaid
+flowchart LR
+    q["“add 5 heads<br/>in the West region”"] --> c["Capacity Headroom<br/>95%"]:::ai
+    c --> p["add_heads<br/>n=5 · region=West"]:::eng
+    p --> e["headroom $26.6M<br/>→ +5 in West: $38.5M"]:::eng
+    e --> a["1,872 bytes JSON<br/>0 rows · 0 PII"]:::eng
+    a --> m["claude-opus-4-8<br/>plain-English answer"]:::ai
+
+    classDef ai fill:#34B7AD,stroke:#268E86,color:#ffffff;
+    classDef eng fill:#211E56,stroke:#16133A,color:#ffffff;
+```
+
+> 📊 **Prefer a visual walk-through for a client?** The same flow as a branded, shareable page:
+> [Voiant — How a question becomes an answer](https://claude.ai/code/artifact/fbcacbca-d197-44a8-b240-6c3b962e0410)
 
 ---
 
