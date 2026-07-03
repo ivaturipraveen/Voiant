@@ -1,25 +1,39 @@
-"""Config hot-reload version bump + orchestrator/narrative deterministic fallback."""
+"""DB-backed config: seed, reload (no bump), persisted update + orchestrator/narrative fallback."""
 
 from __future__ import annotations
 
-import shutil
 from pathlib import Path
 
-from app.config_layer.loader import ConfigLoader
 from app.domain.engine import quota_equity as eng
 from app.domain.models import Rep
+
+from .conftest import make_config_loader
 
 BACKEND = Path(__file__).resolve().parent.parent
 
 
-def test_config_reload_bumps_version(tmp_path):
-    src = BACKEND / "config" / "client_rapid7.yaml"
-    dst = tmp_path / "cfg.yaml"
-    shutil.copy(src, dst)
-    loader = ConfigLoader(dst)
+def test_config_seed_and_reload_is_stable(tmp_path):
+    """First load seeds from YAML; reload re-fetches the same active version (no bump)."""
+    loader = make_config_loader(tmp_path)
     v1 = loader.load().version
-    v2 = loader.load().version
-    assert v2 == v1 + 1  # monotonic bump on each reload
+    v2 = loader.reload().version
+    assert v2 == v1  # reload does NOT bump — only a real update does
+
+
+def test_config_update_persists_and_bumps_version(tmp_path):
+    """update() bumps the version, persists it, and a fresh loader sees the new value."""
+    loader = make_config_loader(tmp_path)
+    v1 = loader.load().version
+
+    updated = loader.update({"company": {"name": "Rapid7 Updated"}})
+    assert updated.version == v1 + 1
+    assert updated.company.name == "Rapid7 Updated"
+
+    # Durability: a brand-new loader over the SAME sqlite file reads the persisted
+    # active version (no reseed, since an active row already exists).
+    fresh = make_config_loader(tmp_path).load()
+    assert fresh.version == v1 + 1
+    assert fresh.company.name == "Rapid7 Updated"
 
 
 def test_deterministic_narrative_fallback(dataset, config):

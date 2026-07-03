@@ -1,6 +1,13 @@
+# Backend-local ignores (the repo-root .gitignore is authoritative; kept in sync).
 .venv/
 __pycache__/
 *.pyc
-data/*.sqlite
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+data/*.sqlite*
 data/snapshot.json
+data/reps.json
+data/reps.csv
 .env

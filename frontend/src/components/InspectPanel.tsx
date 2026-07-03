@@ -14,12 +14,12 @@ export default function InspectPanel({ run }: { run: AgentRunResponse }) {
   let n = 0;
 
   return (
-    <div className="card overflow-hidden border-l-4 border-navy">
-      <div className="border-b border-slate-100 bg-gradient-to-r from-navy to-navy-light px-4 py-3">
-        <div className="font-display text-[11px] font-bold uppercase tracking-[0.14em] text-brand-light">
+    <div className="card overflow-hidden border-l-4 border-brand">
+      <div className="border-b border-slate-200 bg-slate-50 px-4 py-3">
+        <div className="font-display text-[11px] font-bold uppercase tracking-[0.14em] text-brand-dark">
           Behind the scenes
         </div>
-        <div className="font-display text-sm font-bold text-white">Technical trace — every step of this run</div>
+        <div className="font-display text-sm font-bold text-navy">Technical trace — every step of this run</div>
       </div>
       <div className="p-4">
         {t.pipeline && <PipelineFlow run={run} p={t.pipeline} routing={t.routing} parsing={t.input_parsing} />}
@@ -244,7 +244,7 @@ export default function InspectPanel({ run }: { run: AgentRunResponse }) {
                     {i + 1}
                   </span>
                   <span className="truncate text-ink">“{m.question}”</span>
-                  <span className="ml-auto shrink-0 rounded bg-cyan-50 px-1.5 font-mono text-[10px] text-brand-dark">
+                  <span className="ml-auto shrink-0 rounded bg-brand/10 px-1.5 font-mono text-[10px] text-brand-dark">
                     {m.agent}
                   </span>
                 </li>
@@ -336,7 +336,7 @@ function PipelineFlow({
     },
   ];
   return (
-    <div className="mb-4 rounded-xl border border-brand/20 bg-gradient-to-b from-cyan-50/50 to-white p-3">
+    <div className="mb-4 rounded-xl border border-brand/20 bg-brand/[0.04] p-3">
       <div className="mb-2 font-display text-[11px] font-bold uppercase tracking-[0.1em] text-navy">
         How this answer was finalized
       </div>
@@ -451,7 +451,7 @@ function Step({ n, title, children }: { n: number; title: string; children: Reac
   return (
     <div className="mb-3 border-t border-slate-100 pt-3 first:border-0 first:pt-0">
       <div className="mb-1.5 flex items-center gap-2">
-        <span className="grid h-5 w-5 place-items-center rounded-full bg-navy font-mono text-[10px] font-bold text-white">
+        <span className="grid h-5 w-5 place-items-center rounded-full bg-brand font-mono text-[10px] font-bold text-white">
           {n}
         </span>
         <span className="font-display text-[11px] font-bold uppercase tracking-[0.08em] text-navy">{title}</span>

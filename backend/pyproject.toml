@@ -3,10 +3,35 @@ name = "voiant-backend"
 version = "0.1.0"
 description = "Voiant Sales Planning Intelligence — backend (FastAPI)"
 requires-python = ">=3.11"
+dependencies = [
+    "fastapi==0.115.6",
+    "uvicorn[standard]==0.34.0",
+    "pydantic==2.10.4",
+    "pydantic-settings==2.7.1",
+    "python-multipart==0.0.20",
+    "PyYAML==6.0.2",
+    "numpy==2.2.1",
+    "pandas==2.2.3",
+    "openpyxl==3.1.5",
+    "httpx==0.27.2",
+    "requests==2.32.3",
+    "anthropic==0.69.0",
+    "SQLAlchemy==2.0.36",
+    "alembic==1.14.1",          # DB schema migrations (tracked in migrations/)
+    "psycopg2-binary==2.9.10",  # PostgreSQL driver (VOIANT_DATA_SOURCE=database on Render)
+]
+
+[dependency-groups]
+dev = [
+    "pytest==8.3.4",
+    "ruff==0.8.6",
+]
 
 [tool.ruff]
 line-length = 100
 target-version = "py311"
+# Alembic autogenerates these from a template; don't lint generated migrations.
+extend-exclude = ["migrations/versions"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B"]

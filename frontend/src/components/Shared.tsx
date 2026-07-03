@@ -5,8 +5,27 @@ import Markdown from "./Markdown";
 const SEV: Record<string, string> = {
   critical: "border-band-overloaded bg-red-50 text-red-700",
   warn: "border-band-stretched bg-amber-50 text-amber-700",
-  info: "border-brand bg-cyan-50 text-cyan-700",
+  info: "border-slate-300 bg-slate-50 text-slate-600",
 };
+
+// A small, monochrome initials chip for a rep — quiet visual anchor for people/demographic
+// rows. Works with masked names too (initials from "L. R.", a dot for a fully-redacted name).
+export function Avatar({ name }: { name: string }) {
+  const initials =
+    name
+      .trim()
+      .split(/\s+/)
+      .map((w) => w[0])
+      .filter((c) => c && /[A-Za-z0-9]/.test(c))
+      .slice(0, 2)
+      .join("")
+      .toUpperCase() || "•";
+  return (
+    <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-slate-100 font-display text-[10px] font-semibold text-slatebody ring-1 ring-inset ring-slate-200">
+      {initials}
+    </span>
+  );
+}
 
 // A section heading with a short "what this is / how to read it" description.
 export function SectionHead({ title, desc }: { title: string; desc?: string }) {
@@ -78,15 +97,15 @@ export function Metric({
       ? "text-brand-dark"
       : "text-navy";
   return (
-    <div>
-      <div className="text-[11px] uppercase tracking-wide text-slatebody">{label}</div>
-      <div className={`metric-value ${color}`}>{value}</div>
+    <div className="stat-tile flex-1 basis-[150px]">
+      <div className="text-[11px] font-medium uppercase tracking-wide text-slatebody">{label}</div>
+      <div className={`mt-1 metric-value ${color}`}>{value}</div>
     </div>
   );
 }
 
 export function StatStrip({ children }: { children: ReactNode }) {
-  return <div className="flex flex-wrap items-end gap-x-8 gap-y-3">{children}</div>;
+  return <div className="flex flex-wrap gap-3">{children}</div>;
 }
 
 export function NarrativeCard({

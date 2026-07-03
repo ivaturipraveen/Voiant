@@ -13,7 +13,7 @@ const TONE: Record<string, string> = {
 const SEV: Record<string, string> = {
   critical: "border-band-overloaded bg-red-50 text-red-700",
   warn: "border-band-stretched bg-amber-50 text-amber-700",
-  info: "border-brand bg-cyan-50 text-cyan-700",
+  info: "border-slate-300 bg-slate-50 text-slate-600",
 };
 
 // Cache by role so re-opening the tab is instant (no reload).

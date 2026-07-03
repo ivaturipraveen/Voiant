@@ -22,8 +22,8 @@ def get_config(rt: AppRuntime = Depends(get_runtime)) -> dict:
 def update_config(
     patch: dict[str, Any] = Body(...), rt: AppRuntime = Depends(get_runtime)
 ) -> dict:
-    """Apply a partial patch to the live config (in-memory, validated). Leaves the YAML
-    file untouched; POST /config/reload reverts to the file."""
+    """Apply a partial patch to the live config (validated) and persist it as a new
+    version in the DB, which becomes the active config."""
     try:
         cfg = rt.config_loader.update(patch)
     except Exception as e:  # validation error → keep old snapshot
@@ -33,8 +33,9 @@ def update_config(
 
 @router.post("/reload")
 def reload_config(rt: AppRuntime = Depends(get_runtime)) -> dict:
+    """Re-fetch the active config from the DB (picks up changes from another worker)."""
     try:
-        cfg = rt.config_loader.load()
-    except Exception as e:  # validation / file error → keep old snapshot
+        cfg = rt.config_loader.reload()
+    except Exception as e:  # validation / DB error → keep old snapshot
         raise HTTPException(status_code=422, detail=f"Config reload failed: {e}") from e
     return {"reloaded": True, "version": cfg.version, "client_id": cfg.client_id}

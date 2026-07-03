@@ -258,27 +258,32 @@ identical facts.
 ### 5.1 · Data storage & tables (where data lives)
 
 Data lives in a **PostgreSQL database** (Render) with a **SQLite fallback** for local dev — the
-same schema and code run on both (via SQLAlchemy). Config stays as a hot-reloadable file.
+same schema and code run on both (via SQLAlchemy). The schema is owned by **Alembic**
+migrations (`backend/migrations/`), applied automatically at startup. Client config is stored
+in the DB (seeded from a YAML file on first boot).
 
 | Store | Type | Holds | Location |
 | --- | --- | --- | --- |
 | **Reps** | **PostgreSQL** `reps` table | The rep dataset (source of truth; app reads it on boot) | Render Postgres |
 | **Governance** | **PostgreSQL** tables | Shield token map, audit trail, data lineage, run logs | Render Postgres |
-| **Client config** | YAML (hot-reload) | Interpretation rules, segments, RBAC, thresholds | `backend/config/client_rapid7.yaml` |
+| **Client config** | **PostgreSQL** `client_config` table (versioned) | Interpretation rules, segments, RBAC, thresholds | Render Postgres (seeded from `backend/config/client_rapid7.yaml`) |
 | **Working snapshot** | JSON (+ in-memory) | The masked dataset the app serves (cache of the DB) | `backend/data/snapshot.json` |
 
-Switch sources with `VOIANT_DATA_SOURCE` (`database` / `csv` / `synthetic`). Seed the DB with
+Switch data sources with `VOIANT_DATA_SOURCE` (`database` / `csv` / `synthetic`). Schema is
+provisioned by Alembic at startup (`db.upgrade_to_head()`); seed the `reps` data with
 `python scripts/init_db.py --reset`.
 
-**The SQLite database (`voiant.sqlite`) has 5 tables:**
+**The database has 7 tables:**
 
 | Table | Purpose | Key columns |
 | --- | --- | --- |
+| `reps` | The source rep dataset (app reads it on boot) | `rep_id`, `display_name`, `email`, `segment`, `quota`, `pipeline_value`, … |
 | `shield_map` | The reversible PII vault — maps each token to its original value | `token` (PK), `entity_type`, `original_value`, `field`, `source`, `created_at` |
 | `shield_counter` | Per-entity counter so tokens are stable & numbered (`[PERSON 1]`, `[PERSON 2]`) | `entity_type` (PK), `n` |
 | `lineage` | Every field read — which agent read which field, when, with what masking | `run_id`, `agent`, `field`, `principal_id`, `masking`, `ts` |
 | `audit_inference` | Every analysis run — the determinism hash, config version, counts | `run_id`, `agent`, `determinism_hash`, `config_version`, `field_reads`, `mock_data`, `ts` |
 | `audit_llm` | Every Claude call — model used and whether it fell back to deterministic | `run_id`, `purpose`, `model`, `fell_back`, `ts` |
+| `client_config` | Versioned client config ledger — one active row per client, seeded from YAML | `client_id`, `version`, `data` (JSON), `source`, `is_active`, `created_at` |
 
 **The core data record (a "Rep") — logical model:**
 
@@ -288,7 +293,7 @@ Rep = { rep_id, display_name*, email*, segment, region, territory_id,
         (* PII — stored as tokens; re-hydrated per role at read time)
 ```
 
-### The 6 tables — columns + one real example row each
+### The 7 tables — columns + one real example row each
 
 **1. `reps`** — the source rep dataset (80 rows). The app reads this on boot.
 
@@ -335,6 +340,12 @@ Rep = { rep_id, display_name*, email*, segment, region, territory_id,
 | --- | --- | --- | --- | --- | --- |
 | Example | 4d16790382c7 | quota_equity_narrative | claude-opus-4-8 | false | 2026-07-01T12:40:11Z |
 
+**7. `client_config`** — the versioned client config ledger (one active row per client; seeded from `config/client_rapid7.yaml` on first boot, updated via the Config page).
+
+| Column | client_id | version | data (JSON) | source | is_active | created_at |
+| --- | --- | --- | --- | --- | --- | --- |
+| Example | rapid7 | 2 | `{company, segment_definitions, rbac_roles, …}` | update | true | 2026-07-03T17:12:04Z |
+
 > Every question mints a new `run_id`; the `lineage`, `audit_inference`, and `audit_llm` rows for
 > that question all share it — so any answer can be fully reconstructed and audited.
 
@@ -375,7 +386,7 @@ plain-language explanations, same-question-same-answer.
 - ✅ Seeded synthetic dataset (80 reps, the 3 planted findings)
 - ✅ **Bright Shield** ingestion (live) + field-level RBAC masking + lineage
 - ✅ **CSV/Excel connector** + connector framework (+ Salesforce stub, framework panel)
-- ✅ **Client config layer** (hot-reloadable interpretation-rules ledger)
+- ✅ **Client config layer** (DB-backed versioned interpretation-rules ledger, seeded from YAML)
 - ✅ **Quota Equity agent** (deterministic engine + Claude narrative + fallback)
 - ✅ **Capacity Headroom agent** (load scoring, redistribution, two-sided bar chart,
 hire/cut what-ifs)
@@ -484,7 +495,7 @@ status. **Every engineering/code item is done.** Remaining items are human or in
 | Segment definitions (per-client)                              | ✅                               |
 | Stage criteria                                                | ✅                               |
 | User permissions / RBAC scoping — visible                     | ✅ (config + live role switcher) |
-| Loaded from a structured file; changes apply without redeploy | ✅ (YAML hot-reload)             |
+| Structured config; changes apply without redeploy             | ✅ (DB-backed, versioned; seeded from YAML) |
 
 
 ### §3.3 Data Sources and Connectors

@@ -57,12 +57,12 @@ export default function HelpGlossary({ onClose }: { onClose: () => void }) {
         className="h-full w-full max-w-md overflow-y-auto bg-white shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="sticky top-0 flex items-center justify-between border-b border-slate-200 bg-navy px-5 py-3 text-white">
+        <div className="sticky top-0 flex items-center justify-between border-b border-slate-200 bg-white px-5 py-3 text-navy">
           <div>
             <div className="font-display text-sm font-bold uppercase tracking-wide">Glossary</div>
-            <div className="text-[11px] text-white/60">Plain-English meaning of every term</div>
+            <div className="text-[11px] text-slatebody">Plain-English meaning of every term</div>
           </div>
-          <button onClick={onClose} className="rounded-md px-2 py-1 text-sm hover:bg-white/10">
+          <button onClick={onClose} className="rounded-md px-2 py-1 text-sm text-slatebody hover:bg-slate-100">
             ✕
           </button>
         </div>

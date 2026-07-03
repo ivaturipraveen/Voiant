@@ -11,7 +11,7 @@ import io
 import pandas as pd
 
 from .base import CANONICAL_FIELDS, Connector, ConnectorResult
-from .normalize import normalize_rows
+from .normalize import MissingColumnsError, missing_required_columns, normalize_rows
 
 
 class CsvExcelConnector(Connector):
@@ -38,5 +38,8 @@ class CsvExcelConnector(Connector):
         return df.to_dict(orient="records")
 
     def normalize(self, rows: list[dict]) -> ConnectorResult:
+        missing = missing_required_columns(rows)
+        if missing:
+            raise MissingColumnsError(missing)
         records, warnings = normalize_rows(rows)
         return ConnectorResult(source=self.name, records=records, warnings=warnings)

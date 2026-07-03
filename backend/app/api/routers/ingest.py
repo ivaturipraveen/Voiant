@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, File, Form, UploadFile
+from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 
+from ...connectors.normalize import MissingColumnsError
 from ...connectors.registry import discover_all
 from ...deps import get_runtime
 from ...runtime import AppRuntime
@@ -25,4 +26,8 @@ async def upload(
     rt: AppRuntime = Depends(get_runtime),
 ) -> IngestResponse:
     content = await file.read()
-    return ingest_service.ingest_csv(rt, content, file.filename or "upload.csv", set_active=set_active)
+    try:
+        return ingest_service.ingest_csv(rt, content, file.filename or "upload.csv", set_active=set_active)
+    except MissingColumnsError as e:
+        # 422 with exactly which required columns are missing + the headers we accept.
+        raise HTTPException(status_code=422, detail=e.detail) from e

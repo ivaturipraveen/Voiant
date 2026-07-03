@@ -41,14 +41,21 @@ class AppRuntime:
         self.settings = settings
         data_dir = settings.data_dir
 
-        self.config_loader = ConfigLoader(settings.config_path)
-        self.config_loader.load()
-
         # One SQLAlchemy engine — Postgres if VOIANT_DATABASE_URL is set, else local SQLite.
-        from .db import init_schema, make_engine
+        # Built first: the config loader is now DB-backed and needs the schema in place.
+        from .db import make_engine, upgrade_to_head
 
         self.engine = make_engine(settings.voiant_database_url or None, data_dir / "voiant.sqlite")
-        init_schema(self.engine)
+        # Alembic owns the schema — bring it to head (creates everything on a fresh DB,
+        # no-op when current). No create_all, so it never collides with migrations.
+        upgrade_to_head()
+
+        # Client config lives in the DB (client_config table), seeded from the YAML on
+        # first boot. `.load()` fetches the active version into an immutable snapshot.
+        self.config_loader = ConfigLoader(
+            self.engine, settings.voiant_client_id, seed_path=settings.config_path
+        )
+        self.config_loader.load()
 
         self.shield_store = ShieldStore(self.engine)
         self.lineage = LineageStore(self.engine)

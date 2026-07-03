@@ -53,51 +53,29 @@ export default function ConfigPage({ role, onChanged }: { role: string; onChange
     }
   };
 
-  const revert = async () => {
-    setBusy(true);
-    setNote(null);
-    try {
-      await api.reloadConfig();
-      await load();
-      onChanged();
-      setNote("Reverted to the values in the config file.");
-    } finally {
-      setBusy(false);
-    }
-  };
-
   return (
     <div className="space-y-4">
       {/* Header */}
       <div className="card overflow-hidden">
-        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 bg-gradient-to-r from-navy to-navy-light px-5 py-4">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 bg-slate-50 px-5 py-4">
           <div>
-            <div className="font-display text-[11px] font-bold uppercase tracking-[0.14em] text-brand-light">
+            <div className="font-display text-[11px] font-bold uppercase tracking-[0.14em] text-brand-dark">
               Interpretation ledger
             </div>
-            <div className="font-display text-lg font-bold text-white">
+            <div className="font-display text-lg font-bold text-navy">
               {draft.client_name} — Configuration
             </div>
-            <div className="text-xs text-white/70">
-              client_id: {draft.client_id} · version v{saved.version}
+            <div className="text-xs text-slatebody">
+              Client <span className="font-medium text-navy">{draft.client_id}</span> · config version v{saved.version}
             </div>
           </div>
           <div className="flex items-center gap-2">
             {editable ? (
-              <>
-                <button className="btn-outline-light" onClick={revert} disabled={busy}>
-                  Reload from file ↻
-                </button>
-                <button
-                  className="btn bg-brand text-white shadow-sm hover:bg-brand-dark disabled:opacity-50"
-                  onClick={apply}
-                  disabled={!dirty || busy}
-                >
-                  {busy ? "Applying…" : dirty ? "Apply changes" : "No changes"}
-                </button>
-              </>
+              <button className="btn-primary" onClick={apply} disabled={!dirty || busy}>
+                {busy ? "Applying…" : dirty ? "Apply changes" : "No changes"}
+              </button>
             ) : (
-              <span className="rounded-full bg-white/10 px-3 py-1 text-xs text-white/80">🔒 Read-only (viewer)</span>
+              <span className="rounded-full bg-slate-100 px-3 py-1 text-xs text-slatebody">🔒 Read-only (viewer)</span>
             )}
           </div>
         </div>
@@ -105,10 +83,10 @@ export default function ConfigPage({ role, onChanged }: { role: string; onChange
           <p className="text-xs text-slatebody">
             These are the client-specific rules the agents apply. Edit a lever and{" "}
             <b className="text-navy">Apply</b> — every answer and dashboard recomputes against it live.
-            Changes are in-memory; “Reload from file” reverts.
+            Changes are saved as a new config version in the database.
           </p>
           {note && (
-            <span className="ml-3 shrink-0 rounded-md bg-cyan-50 px-2.5 py-1 text-[11px] font-medium text-brand-dark">
+            <span className="ml-3 shrink-0 rounded-md bg-brand/10 px-2.5 py-1 text-[11px] font-medium text-brand-dark">
               {note}
             </span>
           )}
@@ -170,18 +148,17 @@ export default function ConfigPage({ role, onChanged }: { role: string; onChange
         </Section>
 
         {/* Fairness bands */}
-        <Section title="Fairness bands" desc="How a rep's quota/opportunity deviation from the segment median maps to a band + heatmap color.">
+        <Section title="Fairness bands" desc="How far a rep's quota-to-opportunity ratio may deviate from the segment median before it falls into the next band (each band's color drives the heatmap).">
           <div className="space-y-1.5">
-            <RowHead cols={["Band", "Max deviation ≤", "Color"]} />
+            <RowHead cols={["Band", "Max deviation ≤"]} />
             {draft.fairness_bands.map((b, i) => (
-              <div key={b.name} className="grid grid-cols-3 items-center gap-2">
+              <div key={b.name} className="grid grid-cols-2 items-center gap-2">
                 <span className="flex items-center gap-1.5 text-xs font-medium text-navy">
                   <span className="h-2.5 w-2.5 rounded-full" style={{ background: b.color }} />
                   {b.name}
                 </span>
                 <NumberField value={b.max_deviation} step={0.05} disabled={!editable}
                   onChange={(v) => patch((d) => (d.fairness_bands[i].max_deviation = v))} />
-                <span className="font-mono text-[11px] text-slatebody">{b.color}</span>
               </div>
             ))}
           </div>
@@ -270,8 +247,9 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 }
 
 function RowHead({ cols }: { cols: string[] }) {
+  const gridCols = cols.length === 2 ? "grid-cols-2" : "grid-cols-3";
   return (
-    <div className="grid grid-cols-3 gap-2 border-b border-slate-100 pb-1">
+    <div className={`grid ${gridCols} gap-2 border-b border-slate-100 pb-1`}>
       {cols.map((c) => (
         <span key={c} className="font-display text-[10px] font-semibold uppercase tracking-wide text-slate-400">
           {c}

@@ -79,7 +79,7 @@ export default function BehindTheScenes({ role }: { role: string }) {
           {sys.pipeline.map((s, i) => {
             const meta = STEP_META[s.step] ?? { icon: "•", kind: "io" as StepKind };
             const border =
-              meta.kind === "ai" ? "border-brand/40 bg-cyan-50/40"
+              meta.kind === "ai" ? "border-brand/40 bg-brand/[0.06]"
               : meta.kind === "engine" ? "border-navy/25 bg-navy/[0.03]"
               : "border-slate-200 bg-slate-50/60";
             const dot =
@@ -155,7 +155,7 @@ export default function BehindTheScenes({ role }: { role: string }) {
               <div
                 key={a.key}
                 className={`rounded-lg border p-3 ${
-                  built ? "border-brand/40 bg-cyan-50/40" : "border-slate-200 bg-slate-50/40"
+                  built ? "border-brand/40 bg-brand/[0.06]" : "border-slate-200 bg-slate-50/40"
                 }`}
               >
                 <div className="flex items-center justify-between">

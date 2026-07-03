@@ -31,39 +31,41 @@ export default function DataTable({
 
   return (
     <div>
-      <table className="w-full text-xs">
-        <thead>
-          <tr className="border-b border-slate-200 text-slatebody">
-            {columns.map((c) => (
-              <th
-                key={c.key}
-                className={`pb-2 text-[10px] font-semibold uppercase tracking-wider ${
-                  c.align === "right" ? "text-right" : "text-left"
-                }`}
-              >
-                {c.label}
-              </th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {shown.map((r, i) => (
-            <tr
-              key={getKey ? getKey(r, i) : i}
-              className="border-b border-slate-100 transition-colors last:border-0 hover:bg-slate-50/70"
-            >
+      <div className="overflow-x-auto rounded-lg border border-slate-200">
+        <table className="w-full text-xs">
+          <thead>
+            <tr className="border-b border-slate-200 bg-slate-50/70 text-slatebody">
               {columns.map((c) => (
-                <td
+                <th
                   key={c.key}
-                  className={`py-1.5 ${c.align === "right" ? "text-right" : ""} ${c.className ?? "text-ink"}`}
+                  className={`px-3 py-2.5 text-[10px] font-semibold uppercase tracking-wider ${
+                    c.align === "right" ? "text-right" : "text-left"
+                  }`}
                 >
-                  {c.render ? c.render(r) : String(r[c.key] ?? "")}
-                </td>
+                  {c.label}
+                </th>
               ))}
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {shown.map((r, i) => (
+              <tr
+                key={getKey ? getKey(r, i) : i}
+                className="border-b border-slate-100 transition-colors last:border-0 hover:bg-slate-50/70"
+              >
+                {columns.map((c) => (
+                  <td
+                    key={c.key}
+                    className={`px-3 py-2 ${c.align === "right" ? "text-right" : ""} ${c.className ?? "text-ink"}`}
+                  >
+                    {c.render ? c.render(r) : String(r[c.key] ?? "")}
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
       {initial && rows.length > initial && (
         <button
           onClick={() => setExpanded((e) => !e)}

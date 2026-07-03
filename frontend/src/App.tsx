@@ -8,8 +8,9 @@ import InspectPanel from "./components/InspectPanel";
 import { AssumptionsFooter, ConfigLedgerPanel, GovernanceTrail } from "./components/GovernancePanels";
 import ResultRenderer from "./components/ResultRenderer";
 import RoleBanner from "./components/RoleBanner";
+import Sidebar from "./components/Sidebar";
 import ThinkingIndicator from "./components/ThinkingIndicator";
-import VoiantHeader from "./components/VoiantHeader";
+import Topbar from "./components/Topbar";
 
 type Mode = "ask" | "platform" | "config";
 
@@ -116,20 +117,25 @@ export default function App() {
   }, [role]);
 
   return (
-    <div className="min-h-screen">
-      <VoiantHeader
-        health={health}
-        role={role}
-        onRole={setRole}
-        onHelp={() => setShowHelp(true)}
-        onToggleShield={onToggleShield}
-        shieldBusy={shieldBusy}
-      />
+    <div className="flex min-h-screen">
+      <Sidebar mode={mode} onMode={setMode} health={health} />
       {showHelp && <HelpGlossary onClose={() => setShowHelp(false)} />}
 
-      {/* Mode switcher — Conversational · Behind the Scenes · Configuration */}
-      <nav className="relative border-b border-navy/[0.08] bg-white/90 shadow-sm backdrop-blur">
-        <div className="mx-auto flex max-w-[1400px] items-stretch gap-1 px-6">
+      <div className="flex min-w-0 flex-1 flex-col">
+        <Topbar
+          eyebrow={TITLES[mode].eyebrow}
+          title={TITLES[mode].title}
+          sub={TITLES[mode].sub}
+          health={health}
+          role={role}
+          onRole={setRole}
+          onHelp={() => setShowHelp(true)}
+          onToggleShield={onToggleShield}
+          shieldBusy={shieldBusy}
+        />
+
+        {/* Mobile nav — sidebar is hidden below lg */}
+        <nav className="flex items-stretch gap-1 border-b border-slate-200 bg-white px-4 lg:hidden">
           <NavTab active={mode === "ask"} onClick={() => setMode("ask")} title={TAB_HELP.ask}>
             Conversational
           </NavTab>
@@ -139,96 +145,86 @@ export default function App() {
           <NavTab active={mode === "config"} onClick={() => setMode("config")} title={TAB_HELP.config}>
             Configuration
           </NavTab>
-        </div>
-      </nav>
+        </nav>
 
-      {/* Page title band */}
-      <div className="border-b border-slate-200 bg-white">
-        <div className="mx-auto max-w-[1400px] px-6 py-4">
-          <div className="flex items-start justify-between gap-4">
-            <div>
-              <div className="eyebrow">{TITLES[mode].eyebrow}</div>
-              <h1 className="font-display text-2xl font-extrabold uppercase tracking-tight text-navy">
-                {TITLES[mode].title}
-              </h1>
-              <p className="text-xs text-slatebody">{TITLES[mode].sub}</p>
-            </div>
-          </div>
-          <div className="mt-3">
-            <RoleBanner role={role} />
-          </div>
-        </div>
-      </div>
-
-      <main
-        className={`mx-auto grid max-w-[1400px] gap-4 px-6 py-5 ${
-          mode === "ask" ? "lg:grid-cols-[1fr_340px]" : ""
-        }`}
-      >
-        <div className="space-y-4">
-          {mode === "ask" && <ChatPanel onAsk={ask} loading={loading} run={chatRun} />}
-          {error && (
-            <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
-              {error} — is the backend running?
-            </div>
-          )}
-
-          {mode === "config" ? (
-            <ConfigPage role={role} onChanged={onDataChanged} />
-          ) : mode === "platform" ? (
-            <BehindTheScenes role={role} />
-          ) : loading ? (
-            <ThinkingIndicator question={pendingQuestion} />
-          ) : run ? (
-            <>
-              <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-brand/25 bg-gradient-to-r from-cyan-50/70 to-white px-3.5 py-2.5 text-sm">
-                <span className="text-navy">
-                  Answered by the <b>{AGENT_LABEL[run.report_type] ?? "agent"}</b>
-                  {run.trace?.routing?.confidence != null && (
-                    <span className="ml-1 text-slatebody">
-                      · {Math.round(Number(run.trace.routing.confidence) * 100)}% confident
-                      {run.trace.routing.reason && (
-                        <span className="italic"> — “{run.trace.routing.reason}”</span>
-                      )}
-                    </span>
-                  )}
-                </span>
-                <button className="btn-ghost py-1.5 text-xs" onClick={() => setShowInspect((s) => !s)}>
-                  🔍 {showInspect ? "Hide" : "Technical"} details
-                </button>
+        <main
+          className={`grid w-full max-w-[1440px] gap-5 px-6 py-6 ${
+            mode === "ask" ? "xl:grid-cols-[minmax(0,1fr)_340px]" : ""
+          }`}
+        >
+          <div className="min-w-0 space-y-5">
+            {mode === "ask" && (
+              <>
+                <RoleBanner role={role} />
+                <ChatPanel onAsk={ask} loading={loading} run={chatRun} />
+              </>
+            )}
+            {error && (
+              <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+                {error} — is the backend running?
               </div>
-              {run.memory && run.memory.length > 1 && <MemoryStrip memory={run.memory} />}
-              {showInspect && <InspectPanel run={run} />}
-              <ResultRenderer run={run} />
-              <AssumptionsFooter run={run} />
-            </>
-          ) : (
-            <div className="card p-8 text-center text-sm text-slatebody">
-              Ask a question above and the matching dashboard opens with your answer.
-            </div>
+            )}
+
+            {mode === "config" ? (
+              <ConfigPage role={role} onChanged={onDataChanged} />
+            ) : mode === "platform" ? (
+              <BehindTheScenes role={role} />
+            ) : loading ? (
+              <ThinkingIndicator question={pendingQuestion} />
+            ) : run ? (
+              <>
+                <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm shadow-[0_1px_2px_rgba(16,24,40,0.04)]">
+                  <span className="text-navy">
+                    <span className="mr-1.5 inline-block h-1.5 w-1.5 rounded-full bg-brand align-middle" />
+                    Answered by the <b>{AGENT_LABEL[run.report_type] ?? "agent"}</b>
+                    {run.trace?.routing?.confidence != null && (
+                      <span className="ml-1 text-slatebody">
+                        · {Math.round(Number(run.trace.routing.confidence) * 100)}% confident
+                        {run.trace.routing.reason && (
+                          <span className="italic"> — “{run.trace.routing.reason}”</span>
+                        )}
+                      </span>
+                    )}
+                  </span>
+                  <button className="btn-ghost py-1.5 text-xs" onClick={() => setShowInspect((s) => !s)}>
+                    {showInspect ? "Hide" : "Technical"} details
+                  </button>
+                </div>
+                {run.memory && run.memory.length > 1 && <MemoryStrip memory={run.memory} />}
+                {showInspect && <InspectPanel run={run} />}
+                <ResultRenderer run={run} />
+                <AssumptionsFooter run={run} />
+              </>
+            ) : (
+              <div className="card grid place-items-center p-14 text-center">
+                <div className="max-w-sm">
+                  <div className="mx-auto mb-3 grid h-10 w-10 place-items-center rounded-full bg-brand/10 text-brand-dark">
+                    <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z" />
+                    </svg>
+                  </div>
+                  <p className="text-sm font-medium text-navy">Ask a question to begin</p>
+                  <p className="mt-1 text-[13px] text-slatebody">
+                    The matching dashboard opens inline with your answer.
+                  </p>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {mode === "ask" && (
+            <aside className="space-y-5">
+              <ConfigLedgerPanel onReload={onDataChanged} role={role} />
+              <UploadControl onIngested={onDataChanged} role={role} />
+              <GovernanceTrail run={run} />
+            </aside>
           )}
-        </div>
+        </main>
 
-        {mode === "ask" && (
-          <aside className="space-y-4">
-            <ConfigLedgerPanel onReload={onDataChanged} role={role} />
-            <UploadControl onIngested={onDataChanged} role={role} />
-            <GovernanceTrail run={run} />
-          </aside>
-        )}
-      </main>
-
-      <footer className="mx-auto flex max-w-[1400px] flex-col items-center gap-2.5 px-6 pb-10 pt-4 text-center">
-        <span className="text-[10px] uppercase tracking-[0.18em] text-slate-400">Powered by</span>
-        <img
-          src="/brightcone-wordmark.webp"
-          alt="brightcone.ai — Clarity. Focus. Impact"
-          className="h-11 w-auto"
-        />
-        <div className="text-xs text-slate-400">
+        <footer className="mt-auto border-t border-slate-200 px-6 py-4 text-center text-xs text-slate-400">
           Voiant Sales Planning Intelligence · Governance-first agentic AI · Synthetic data only
-        </div>
-      </footer>
+        </footer>
+      </div>
     </div>
   );
 }
@@ -240,13 +236,12 @@ function MemoryStrip({ memory }: { memory: { question: string; agent: string }[]
     scenario_orchestrator: "Orchestrator",
   };
   return (
-    <div className="rounded-xl border border-brand/20 bg-gradient-to-r from-cyan-50/60 to-white px-4 py-3">
+    <div className="rounded-xl border border-slate-200 bg-white px-4 py-3">
       <div className="mb-2 flex items-center gap-2">
-        <span className="text-sm">🧠</span>
-        <span className="font-display text-[11px] font-bold uppercase tracking-wide text-navy">
+        <span className="font-display text-[11px] font-semibold uppercase tracking-wide text-slate-500">
           Conversation memory
         </span>
-        <span className="rounded-full bg-brand/10 px-2 py-0.5 text-[10px] font-semibold text-brand-dark">
+        <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slatebody">
           {memory.length} turn{memory.length === 1 ? "" : "s"}
         </span>
         <span className="ml-auto text-[10px] text-slate-400">this session only · not stored in DB</span>
