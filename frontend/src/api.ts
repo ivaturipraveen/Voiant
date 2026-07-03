@@ -238,6 +238,8 @@ async function post<T>(path: string, body: unknown): Promise<T> {
 
 export const api = {
   health: () => get<Health>("/health"),
+  toggleShield: (enabled: boolean) =>
+    post<{ enabled: boolean; status: string; reps: number }>("/shield/toggle", { enabled }),
   config: () => get<ClientConfig>("/config"),
   reloadConfig: () => post<{ reloaded: boolean; version: number }>("/config/reload", {}),
   updateConfig: (patch: Record<string, unknown>) => post<ClientConfig>("/config/update", patch),

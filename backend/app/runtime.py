@@ -65,6 +65,7 @@ class AppRuntime:
         )
 
         self.snapshot: DatasetSnapshot | None = None
+        self.data_revision = 0  # bumps on re-ingest (e.g. Shield toggle) → busts dashboard cache
 
         # Conversation context: session_id -> list of {question, agent, run_id}.
         self._sessions: dict[str, list[dict]] = {}
@@ -89,8 +90,18 @@ class AppRuntime:
         return list(self._sessions.get(session_id) or [])
 
     # ── Dataset lifecycle ─────────────────────────────────────────────────────
-    def bootstrap(self) -> DatasetSnapshot:
-        """Load the rep dataset from the configured source and ingest through Shield."""
+    def set_shield(self, enabled: bool) -> DatasetSnapshot:
+        """Turn Shield masking on/off and re-ingest so the snapshot reflects it. With Shield
+        off, PII is stored/shown raw; with it on, PII is tokenised (vault cache → no re-hit
+        of the masker API for values already seen). Bumps data_revision to bust caches."""
+        self.shield_client.enabled = enabled and bool(self.shield_client.base_url)
+        self.shield_client._breaker_open = False
+        self.data_revision += 1
+        return self.bootstrap(force=True)
+
+    def bootstrap(self, force: bool = False) -> DatasetSnapshot:
+        """Load the rep dataset from the configured source and ingest through Shield.
+        `force=True` skips the persisted-snapshot fast-path and re-applies masking."""
         source = (self.settings.voiant_data_source or "synthetic").lower()
         try:
             if source == "csv" and self.settings.voiant_data_csv_path:
@@ -106,7 +117,7 @@ class AppRuntime:
 
         # Fast path: reuse a previously-masked snapshot for this exact source so we don't
         # re-mask (and re-hit the masker API) on every boot. Only mask when it's missing.
-        persisted = self._load_persisted_masked(snap_id, len(records))
+        persisted = None if force else self._load_persisted_masked(snap_id, len(records))
         if persisted is not None:
             self.snapshot = persisted
             logger.info(

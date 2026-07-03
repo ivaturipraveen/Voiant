@@ -14,27 +14,19 @@ each step is verifiable in the code.
 
 ## The flow at a glance
 
-The colour tells the story: **teal = AI (Claude)**, **navy = deterministic engine**,
-**grey = secure I/O**. Only two steps are AI — *understand* the question and *explain* the
-answer. Everything that touches a number is deterministic.
+Only two steps are AI — *understand* the question and *explain* the answer. Everything that
+touches a number is deterministic.
 
 ```mermaid
 flowchart TD
-    B["🗄️ 0 · Data loaded ONCE at boot<br/><small>reps table → Shield masking → in-memory snapshot</small>"]:::io
-    Q["💬 1 · Question received<br/><small>POST /agents/chat · question + role + session</small>"]:::io
-    C["🧭 2 · Classify — AI<br/><small>Haiku picks the agent by MEANING (no keywords)</small>"]:::ai
-    P["🔎 3 · Parse input<br/><small>regex + keywords → n, region (deterministic)</small>"]:::eng
-    R["🛡️ 4 · Shielded read<br/><small>PII re-hydrated per role · every read logged</small>"]:::io
-    E["🧮 5 · Compute — engine<br/><small>pure Python: all numbers + findings + hash</small>"]:::eng
-    A["📦 6 · Assemble payload<br/><small>aggregates only · 0 raw rows · 0 PII</small>"]:::eng
-    M["🤖 7 · Model explains — AI<br/><small>Opus/Sonnet narrate; never compute</small>"]:::ai
-    D["✅ 8 · Audit &amp; respond<br/><small>logged · charts render from the real report</small>"]:::io
-
-    B --> Q --> C --> P --> R --> E --> A --> M --> D
-
-    classDef ai fill:#34B7AD,stroke:#268E86,color:#ffffff;
-    classDef eng fill:#211E56,stroke:#16133A,color:#ffffff;
-    classDef io fill:#EEF1F7,stroke:#5A6B92,color:#1B1A38;
+    B["0 · Data loaded once at boot"] --> Q["1 · Question received"]
+    Q --> C["2 · Classify (AI) — pick the agent by meaning"]
+    C --> P["3 · Parse input — extract params (n, region)"]
+    P --> R["4 · Shielded read — PII per role, every read logged"]
+    R --> E["5 · Compute (engine) — all numbers + findings + hash"]
+    E --> A["6 · Assemble payload — aggregates only, 0 rows, 0 PII"]
+    A --> M["7 · Model explains (AI) — narrate, never compute"]
+    M --> D["8 · Audit and respond — charts from the real report"]
 ```
 
 Throughout the steps below, we follow one concrete example:
@@ -43,18 +35,12 @@ Throughout the steps below, we follow one concrete example:
 
 ```mermaid
 flowchart LR
-    q["“add 5 heads<br/>in the West region”"] --> c["Capacity Headroom<br/>95%"]:::ai
-    c --> p["add_heads<br/>n=5 · region=West"]:::eng
-    p --> e["headroom $26.6M<br/>→ +5 in West: $38.5M"]:::eng
-    e --> a["1,872 bytes JSON<br/>0 rows · 0 PII"]:::eng
-    a --> m["claude-opus-4-8<br/>plain-English answer"]:::ai
-
-    classDef ai fill:#34B7AD,stroke:#268E86,color:#ffffff;
-    classDef eng fill:#211E56,stroke:#16133A,color:#ffffff;
+    q["'add 5 heads in West'"] --> c["Capacity Headroom · 95%"]
+    c --> p["add_heads · n=5 · region=West"]
+    p --> e["headroom $26.6M → +5: $38.5M"]
+    e --> a["1,872 bytes · 0 rows · 0 PII"]
+    a --> m["claude-opus-4-8 → answer"]
 ```
-
-> 📊 **Prefer a visual walk-through for a client?** The same flow as a branded, shareable page:
-> [Voiant — How a question becomes an answer](https://claude.ai/code/artifact/fbcacbca-d197-44a8-b240-6c3b962e0410)
 
 ---
 
@@ -210,6 +196,151 @@ Result: a plain-English explanation of the computed figures — no new numbers i
 - The **technical trace** (`InspectPanel.tsx`) replays all of the above: routing + confidence,
   input parsing, shield sample, engine numbers, findings, segments, assumptions, data-selection,
   and the exact model input/output.
+
+---
+
+## Deep dive: one query, end to end — with masking timing
+
+This traces a single question in full detail, including **exactly when data is read from the
+database, when PII is masked, and when it is un-masked**. A key point up front:
+
+> **The database is read once, at boot — not per question.** And **PII never travels to the
+> model.** Masking happens at *ingest*; un-masking happens at *read time* for display (per role).
+> The model round-trip carries only computed numbers, so there is nothing to "un-mask" in the
+> model's response.
+
+**Query for this walk-through:** *"Is each rep's quota fair given their territory's opportunity?"*
+· **Role:** `analyst`
+
+### Phase A — Boot (once): read the DB and mask PII into a vault
+
+1. **Read the database.** `runtime.py::_load_database()` runs the configured query:
+   ```sql
+   SELECT * FROM reps;          -- VOIANT_DB_QUERY=reps
+   ```
+   It returns raw rows — **with real PII**:
+   ```json
+   { "rep_id": "R000", "display_name": "Liam Rossi", "email": "liam.rossi@acme.com",
+     "segment": "Enterprise", "region": "West", "quota": 2400000, "pipeline_value": 7000000, ... }
+   ```
+
+2. **Mask the sensitive fields.** For every row, `masker.mask_record(rec, SENSITIVE_FIELDS)` masks
+   `{display_name, email, phone}`. Each value is sent to the Bright Masker (`POST /mask`), which
+   returns the PII spans; the masker mints a **stable token** and records the mapping in the
+   **`shield_map` vault**:
+   | Real value | Token (stored) | Vault row |
+   |---|---|---|
+   | `Liam Rossi` | `[PERSON 6]` | `shield_map: [PERSON 6] ↔ Liam Rossi` |
+   | `liam.rossi@acme.com` | `[EMAIL 3]` | `shield_map: [EMAIL 3] ↔ liam.rossi@acme.com` |
+
+3. **Keep only the masked row in memory.** The working snapshot holds tokens, never raw PII:
+   ```json
+   { "rep_id": "R000", "display_name": "[PERSON 6]", "email": "[EMAIL 3]",
+     "segment": "Enterprise", "region": "West", "quota": 2400000, "pipeline_value": 7000000, ... }
+   ```
+   The only place the real values still exist is the reversible vault. *(This is what the Shield
+   toggle flips: with Shield **off**, step 2 is skipped and the raw values are kept as-is.)*
+
+> ⏱️ **Masking happens here — once, at boot.** No question has been asked yet.
+
+### Phase B — Per question (fast): read the snapshot, un-mask for the role
+
+4. **Question arrives** → classified to `quota_equity` (see steps 1–2 above). **No database query
+   runs** — everything below reads the in-memory masked snapshot.
+
+5. **Un-mask (re-hydrate) for the role.** `_reps.py::build_reps` rebuilds each rep and calls
+   `masking.py::demask_value` on the display fields. Two things happen, in order:
+   - **Re-hydrate the token:** `[PERSON 6]` → look up the vault → `Liam Rossi`.
+   - **Apply the role's display mask** (`rbac_roles` in the config):
+     | Role | `demask_value("[PERSON 6]")` → |
+     |---|---|
+     | admin | `Liam Rossi` (full) |
+     | **analyst** | `L. R.` (initials) ← *this run* |
+     | viewer | `[PERSON 6]` (kept redacted) |
+   - Every read writes a **lineage** row (`agent, field, role, masking level, time`).
+
+   So the analyst’s in-memory rep is `{ rep_id: "R000", display_name: "L. R.", … }`.
+
+> ⏱️ **Un-masking happens here — at read time, per role.** Not after the model; *before* the engine,
+> and only for display fields. The numeric fields (`quota`, `pipeline_value`) were never masked.
+
+### Phase C — Compute, convert, and send to the model
+
+6. **Compute.** `engine/quota_equity.py::compute` runs on the reps and produces the report — deployed
+   vs target, per-segment CV / paintbrush, per-rep fairness bands, findings, a determinism hash.
+   The math uses only `quota` and `pipeline_value`; names/emails are irrelevant to it.
+
+7. **Convert to the model payload.** The report is projected to a compact JSON of **aggregates only**
+   and the question is appended. Crucially, **no rep names, emails, tokens, or raw rows are in it**:
+   ```json
+   { "deployed_quota": "166000000.06", "top_down_target": "130000000",
+     "over_assignment_pct": 27.69,
+     "segments": [ { "segment": "Enterprise", "quota_cv": 0.18, "is_paintbrushed": false }, … ],
+     "findings": [ { "code": "DEPLOYED_GT_TARGET", "severity": "critical", "message": "…" }, … ],
+     "user_question": "Is each rep's quota fair given their territory's opportunity?" }
+   ```
+
+8. **Send to the model.** Claude receives that JSON with a system prompt that says *explain, never
+   compute*. It returns a plain-English narrative over those numbers.
+
+### Phase D — Response: there is nothing to un-mask
+
+9. The model’s answer is prose about the computed figures. **It never received any PII or any token,
+   so there is nothing to un-mask on the way back.** The response, the report (already role-masked in
+   step 5), and the trace are returned; the UI renders the charts from the report.
+
+### The masking timeline, in one line
+
+```
+BOOT:      DB read → mask PII → tokens in vault + masked snapshot        (once)
+PER QUERY: read masked snapshot → re-hydrate + role-mask for display     (fast, no DB)
+           → engine computes on numbers → aggregates-only JSON → model
+RESPONSE:  model explains the numbers → nothing to un-mask (it saw no PII)
+```
+
+**Why this matters:** the model is never a place where PII could leak, because PII is removed at
+ingest and the model is only ever handed computed numbers. Un-masking is a *display* concern, gated
+by role at read time, and fully logged.
+
+---
+
+## Design decision: why "engine computes" beats "mask → model → unmask"
+
+A reasonable alternative pattern is: on each query, **fetch the rows → mask the PII → send the
+masked rows to the model → let the model reason → un-mask the model's output → show it.** That is a
+legitimate production pattern (it's what classic "PII-safe chat" does). We deliberately chose a
+different one. Here is the comparison and why.
+
+| | Mask → model → unmask | **Engine computes → aggregates only** (this system) |
+|---|---|---|
+| What the model receives | Masked **rows** (tokens + real quotas) | Only **computed aggregates** — no rows, no tokens, no PII |
+| Who does the math | The **model** (can vary / hallucinate) | A **deterministic engine** (exact, hash-verified) |
+| Same question → same answer | Not guaranteed | Guaranteed |
+| Un-mask step needed | Yes (tokens come back in the output) | No (output never contained tokens) |
+| Cost / tokens per query | High (N rows every time) | Low (a small summary) |
+| CISO claim | "we masked the PII we sent" | "**we sent no rows and no PII at all**" |
+
+**Why the swappable database makes this the clear winner.** Because the dataset can change at any
+time (point `VOIANT_DATABASE_URL` at a new DB, or switch `VOIANT_DATA_SOURCE` to csv/synthetic):
+
+- **One env var, no code change.** On boot the new source is read, masked, and the engine recomputes
+  — numbers, provenance text, and assumptions all adapt automatically.
+- **Source-agnostic security.** The same masking runs for Postgres, CSV, or synthetic, so switching
+  databases never changes what leaves for the model (still: nothing but aggregates).
+- **No per-DB re-audit.** The contract with the model is fixed regardless of the database, so you
+  never have to re-verify "what did we send this time".
+- **Deterministic on any dataset.** A new DB yields new numbers, still reproducible and hash-verified
+  — whereas letting the model do the math would make results drift per run *and* per database.
+
+**When the other pattern is right.** If a user asks something the engine does **not** pre-compute —
+open-ended Q&A over raw records, summarising free-text notes with names — then mask → model → unmask
+is the correct tool: mask the rows, let the model reason, un-mask the response. The recommended
+end-state is a **hybrid**: the deterministic engine for structured analytics (fairness, capacity,
+what-ifs), and a masked-LLM "free-form ask" mode for open questions — never sending raw PII in either.
+
+**Verdict:** for reproducible, auditable sales-planning numbers over a database you can swap at will,
+**engine-computes / aggregates-only is the best approach** — it is both safer (no PII or rows reach
+the model) and more robust to data changes (swap the DB freely; the model contract is unchanged).
 
 ---
 

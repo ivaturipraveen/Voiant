@@ -3,18 +3,39 @@ import VoiantLogo from "./VoiantLogo";
 
 const ROLES = ["analyst", "admin", "viewer"];
 
-function ShieldPill({ status }: { status: string }) {
-  const map: Record<string, { dot: string; label: string; text: string }> = {
-    active: { dot: "bg-emerald-400", label: "Shield ON", text: "text-emerald-300" },
-    degraded: { dot: "bg-amber-400", label: "Shield Degraded", text: "text-amber-300" },
-    disabled: { dot: "bg-slate-400", label: "Shield Off", text: "text-slate-300" },
-  };
-  const s = map[status] ?? map.disabled;
+function ShieldToggle({
+  status,
+  busy,
+  onToggle,
+}: {
+  status: string;
+  busy: boolean;
+  onToggle: (enabled: boolean) => void;
+}) {
+  const on = status === "active";
+  const degraded = status === "degraded";
+  const dot = on ? "bg-emerald-400" : degraded ? "bg-amber-400" : "bg-slate-400";
+  const text = on ? "text-emerald-300" : degraded ? "text-amber-300" : "text-slate-300";
+  const label = busy ? "Switching…" : on ? "Shield ON" : "Shield OFF";
   return (
-    <span className={`chip bg-white/10 ${s.text}`}>
-      <span className={`h-2 w-2 rounded-full ${s.dot} ${status === "active" ? "animate-pulse" : ""}`} />
-      <span className="font-display font-semibold uppercase tracking-wider text-[10px]">{s.label}</span>
-    </span>
+    <button
+      onClick={() => onToggle(!on)}
+      disabled={busy}
+      title="Turn Shield PII masking on or off (re-ingests the dataset)"
+      className={`chip bg-white/10 ${text} transition hover:bg-white/15 disabled:opacity-70`}
+    >
+      <span className={`h-2 w-2 rounded-full ${dot} ${on && !busy ? "animate-pulse" : ""}`} />
+      <span className="font-display font-semibold uppercase tracking-wider text-[10px]">{label}</span>
+      <span
+        className={`ml-0.5 flex h-3.5 w-6 items-center rounded-full px-0.5 transition ${
+          on ? "bg-emerald-400/70" : "bg-white/20"
+        }`}
+      >
+        <span
+          className={`h-2.5 w-2.5 rounded-full bg-white shadow transition-transform ${on ? "translate-x-2.5" : ""}`}
+        />
+      </span>
+    </button>
   );
 }
 
@@ -23,11 +44,15 @@ export default function VoiantHeader({
   role,
   onRole,
   onHelp,
+  onToggleShield,
+  shieldBusy,
 }: {
   health: Health | null;
   role: string;
   onRole: (r: string) => void;
   onHelp: () => void;
+  onToggleShield: (enabled: boolean) => void;
+  shieldBusy: boolean;
 }) {
   return (
     <header className="bg-gradient-to-r from-navy-deep via-navy to-navy-light text-white">
@@ -43,7 +68,11 @@ export default function VoiantHeader({
         </div>
 
         <div className="flex items-center gap-2">
-          <ShieldPill status={health?.shield.status ?? "disabled"} />
+          <ShieldToggle
+            status={health?.shield.status ?? "disabled"}
+            busy={shieldBusy}
+            onToggle={onToggleShield}
+          />
           {health?.dataset.mock_data && (
             <span className="chip bg-amber-400/15 font-display text-[10px] font-semibold uppercase tracking-wider text-amber-300">
               Mock Data

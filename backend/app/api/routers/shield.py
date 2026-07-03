@@ -16,6 +16,27 @@ class TextPayload(BaseModel):
     text: str
 
 
+class ShieldToggle(BaseModel):
+    enabled: bool
+
+
+@router.get("/status")
+def shield_status(rt: AppRuntime = Depends(get_runtime)) -> dict:
+    return {"enabled": rt.shield_client.enabled, "status": rt.shield_status}
+
+
+@router.post("/toggle")
+def toggle_shield(payload: ShieldToggle, rt: AppRuntime = Depends(get_runtime)) -> dict:
+    """Turn Shield masking on/off and re-ingest the dataset so the change takes effect
+    everywhere (dashboards + conversational). With Shield off, PII is stored/shown raw."""
+    snap = rt.set_shield(payload.enabled)
+    return {
+        "enabled": rt.shield_client.enabled,
+        "status": rt.shield_status,
+        "reps": len(snap.masked_reps),
+    }
+
+
 @router.post("/detect")
 async def detect(payload: TextPayload, rt: AppRuntime = Depends(get_runtime)) -> dict:
     """Forward to Bright Masker /mask and return the masked text + detected spans."""

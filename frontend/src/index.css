@@ -4,7 +4,12 @@
 
 @layer base {
   body {
-    @apply bg-[#F4F6FA] text-ink antialiased;
+    @apply text-ink antialiased;
+    /* A considered, navy-biased neutral with a whisper of depth — not a flat grey. */
+    background:
+      radial-gradient(1200px 600px at 50% -8%, rgba(52, 183, 173, 0.06), transparent 60%),
+      linear-gradient(180deg, #eef1f8 0%, #f4f6fb 46%, #f4f6fb 100%);
+    background-attachment: fixed;
     font-feature-settings: "cv11", "ss01";
     -webkit-font-smoothing: antialiased;
     text-rendering: optimizeLegibility;
@@ -26,29 +31,35 @@
   pre {
     @apply font-mono;
   }
+  /* Consistent, tasteful keyboard focus everywhere. */
+  :focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 2px #fff, 0 0 0 4px rgba(52, 183, 173, 0.55);
+    border-radius: 6px;
+  }
 }
 
 @layer components {
   .card {
-    @apply rounded-xl border border-slate-200/80 bg-white shadow-card transition-shadow;
+    @apply rounded-2xl border border-navy/[0.07] bg-white shadow-card transition-all duration-200;
   }
   .card-hover {
-    @apply hover:shadow-[0_2px_4px_rgba(27,26,56,0.05),0_8px_28px_rgba(27,26,56,0.08)];
+    @apply hover:-translate-y-0.5 hover:border-brand/30 hover:shadow-[0_2px_6px_rgba(33,30,86,0.05),0_16px_40px_-12px_rgba(33,30,86,0.16)];
   }
   .panel-title {
-    @apply flex items-center gap-2 font-display text-[11px] font-bold uppercase tracking-[0.12em] text-navy before:h-3 before:w-1 before:rounded-full before:bg-brand before:content-[''];
+    @apply flex items-center gap-2 font-display text-[11px] font-bold uppercase tracking-[0.12em] text-navy before:h-3.5 before:w-1 before:rounded-full before:bg-gradient-to-b before:from-brand-light before:to-brand-dark before:content-[''];
   }
   .eyebrow {
     @apply font-display text-[11px] font-bold uppercase tracking-[0.14em] text-brand-dark;
   }
   .btn {
-    @apply inline-flex items-center justify-center gap-2 rounded-lg px-3.5 py-2 text-sm font-semibold transition;
+    @apply inline-flex items-center justify-center gap-2 rounded-lg px-3.5 py-2 text-sm font-semibold transition-all duration-150 active:scale-[0.98];
   }
   .btn-primary {
-    @apply btn bg-brand text-white shadow-sm hover:bg-brand-dark disabled:opacity-60;
+    @apply btn bg-gradient-to-b from-brand to-brand-dark text-white shadow-[0_1px_2px_rgba(38,142,134,0.35),0_4px_14px_-4px_rgba(38,142,134,0.5)] hover:brightness-[1.06] disabled:opacity-60 disabled:shadow-none;
   }
   .btn-ghost {
-    @apply btn border border-slate-200 bg-white text-navy hover:border-brand hover:text-brand-dark;
+    @apply btn border border-navy/10 bg-white/80 text-navy shadow-sm backdrop-blur hover:border-brand/40 hover:text-brand-dark;
   }
   .btn-outline-light {
     @apply btn border border-white/40 text-white hover:bg-white/10;

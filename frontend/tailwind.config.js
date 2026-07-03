@@ -31,7 +31,7 @@ export default {
         mono: ["'JetBrains Mono'", "ui-monospace", "SFMono-Regular", "Menlo", "monospace"],
       },
       boxShadow: {
-        card: "0 1px 2px rgba(27,26,56,0.04), 0 4px 16px rgba(27,26,56,0.06)",
+        card: "0 1px 2px rgba(33,30,86,0.04), 0 10px 30px -14px rgba(33,30,86,0.14)",
       },
     },
   },

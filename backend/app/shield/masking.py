@@ -42,6 +42,10 @@ class ShieldMasker:
         if value is None:
             return MaskResult(masked="", entities=[])
         text = str(value)
+        # Shield OFF → pass the raw value straight through (no tokenisation). This is what
+        # the demo toggle flips: with Shield off, PII is stored and shown unmasked.
+        if not getattr(self.client, "enabled", True):
+            return MaskResult(masked=text, entities=[])
         # Fast path: if this exact value is already vaulted, reuse its token — no Shield call.
         cached = self.store.token_for_value(text)
         if cached is not None:

@@ -74,11 +74,54 @@ export default function App() {
     refreshHealth();
   }, []);
 
+  // Warm the dashboards in the background (per role) so switching tabs is instant. The
+  // backend also caches these, so this fills both caches; the user never waits on a tab.
+  useEffect(() => {
+    let alive = true;
+    Promise.allSettled([api.territoryEquity(role), api.capacityOverview(role)]).then((r) => {
+      if (!alive) return;
+      setDashCache((cache) => {
+        const next = { ...cache };
+        if (r[0].status === "fulfilled") next[`territory:${role}`] = r[0].value;
+        if (r[1].status === "fulfilled") next[`capacity:${role}`] = r[1].value;
+        return next;
+      });
+    });
+    api.executiveSummary(role).catch(() => {}); // warms the server cache for Executive Summary
+    return () => {
+      alive = false;
+    };
+  }, [role]);
+
   // Called after an upload or config reload — invalidate cached dashboards so they recompute.
   const onDataChanged = () => {
     setDashCache({});
     clearExecCache();
     refreshHealth();
+  };
+
+  const [shieldBusy, setShieldBusy] = useState(false);
+  const onToggleShield = async (enabled: boolean) => {
+    setShieldBusy(true);
+    try {
+      await api.toggleShield(enabled);
+      await refreshHealth();
+      setDashCache({});
+      clearExecCache();
+      // Refresh whatever is on screen so the masking change is visible immediately.
+      if (mode === "territory" || mode === "capacity") {
+        loadDashboard(true);
+      } else if (mode === "ask" && chatRun) {
+        const res = await api.chat(chatRun.question, role, sessionRef.current, false);
+        const updated = { ...chatRun, report: res.report, trace: res.trace };
+        setChatRun(updated);
+        setRun(updated);
+      }
+    } catch (e) {
+      setError(String(e));
+    } finally {
+      setShieldBusy(false);
+    }
   };
 
   const ask = async (question: string) => {
@@ -146,7 +189,14 @@ export default function App() {
 
   return (
     <div className="min-h-screen">
-      <VoiantHeader health={health} role={role} onRole={setRole} onHelp={() => setShowHelp(true)} />
+      <VoiantHeader
+        health={health}
+        role={role}
+        onRole={setRole}
+        onHelp={() => setShowHelp(true)}
+        onToggleShield={onToggleShield}
+        shieldBusy={shieldBusy}
+      />
       {showHelp && <HelpGlossary onClose={() => setShowHelp(false)} />}
 
       {/* Mode switcher — Conversational · Dashboards ▾ · Behind the Scenes */}
