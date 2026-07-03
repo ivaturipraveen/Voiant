@@ -1,0 +1,4 @@
+employee_id,full_name,work_email,segment_name,geo,annual_quota,open_pipeline,attainment_pct
+A1,Marcus Chen,marcus.chen@globex.com,Enterprise,North,2600000,8500000,90
+A2,Fatima Ali,fatima.ali@globex.com,Commercial,East,1600000,5000000,110
+A3,David Brown,david.brown@globex.com,SMB,West,900000,2200000,85

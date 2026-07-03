@@ -1,0 +1,28 @@
+# ─── Python ───────────────────────────────────────────────────────────────
+backend/.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.ruff_cache/
+
+# ─── Generated data / runtime artifacts (regenerated on boot) ───────────────
+backend/data/*.sqlite
+backend/data/snapshot.json
+backend/data/reps.json
+backend/data/reps.csv
+
+# ─── Secrets — NEVER commit ─────────────────────────────────────────────────
+.env
+*.env
+!.env.example
+
+# ─── Node / frontend build ──────────────────────────────────────────────────
+frontend/node_modules/
+frontend/dist/
+
+# ─── OS ─────────────────────────────────────────────────────────────────────
+.DS_Store
+
+# Internal reference docs (not for public repo)
+docs/*.pdf
+docs/*.docx

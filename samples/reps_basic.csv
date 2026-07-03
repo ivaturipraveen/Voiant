@@ -1,0 +1,6 @@
+rep_id,name,email,segment,region,quota,pipeline,attainment
+S001,Nina Patel,nina.patel@acme.com,Enterprise,North,2500000,9000000,0.92
+S002,Omar Haddad,omar.haddad@acme.com,Commercial,West,1500000,4500000,1.05
+S003,Grace Kim,grace.kim@acme.com,SMB,East,800000,2000000,0.78
+S004,Liam Walsh,liam.walsh@acme.com,Mid-Market,South,1400000,4000000,0.88
+S005,Sofia Rossi,sofia.rossi@acme.com,Strategic,North,3200000,15000000,0.95

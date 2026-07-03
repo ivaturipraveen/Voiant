@@ -1,0 +1,93 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# Client-specific configuration — the visible "interpretation rules ledger".
+# Hot-reloadable: edit this file and POST /config/reload (no redeploy).
+# ─────────────────────────────────────────────────────────────────────────────
+client_id: rapid7
+client_name: "Rapid7 (sample)"
+version: 1
+
+company:
+  name: "Rapid7"
+  top_down_target: 130000000      # $130M company target (≠ deployed quota)
+
+# The reading rules the agents apply for THIS client.
+interpretation_rules:
+  - id: deployed_vs_target
+    label: "$130M target ≠ $166M deployed"
+    rule: "deployed_quota = sum(rep.quota); top_down_target = company.top_down_target. They are distinct metrics and must never be conflated."
+  - id: opportunity_basis
+    label: "Opportunity basis"
+    rule: "A rep's opportunity = pipeline_value. Fallback to territory total_addressable_pipeline when pipeline is missing."
+  - id: strategic_fold
+    label: "Strategic segment folded up"
+    rule: "The Strategic segment is being folded into Enterprise for FY planning; report both but flag the overlap."
+
+# Per-client segment naming + grouping rules.
+segment_definitions:
+  - name: "Enterprise"
+    expected_quota_to_pipeline: 0.25
+    paintbrush_cv_threshold: 0.05
+  - name: "Commercial"
+    expected_quota_to_pipeline: 0.33
+    paintbrush_cv_threshold: 0.05
+  - name: "Mid-Market"
+    expected_quota_to_pipeline: 0.30
+    paintbrush_cv_threshold: 0.05
+  - name: "SMB"
+    expected_quota_to_pipeline: 0.40
+    paintbrush_cv_threshold: 0.05
+  - name: "Strategic"
+    expected_quota_to_pipeline: 0.20
+    paintbrush_cv_threshold: 0.05
+
+# Sales-process anchors (referenced by future agents; defined now).
+stage_criteria:
+  - name: "Commit"
+    min_probability: 0.75
+  - name: "Best Case"
+    min_probability: 0.40
+  - name: "Pipeline"
+    min_probability: 0.10
+
+# Fairness banding — deviation of a rep's quota/opportunity ratio from the
+# segment median. Colors are deterministic and drive the heatmap.
+fairness_bands:
+  - name: "Underloaded"
+    max_deviation: -0.25      # deviation <= -0.25
+    color: "#3B82F6"
+  - name: "Equitable"
+    max_deviation: 0.15       # -0.25 < deviation <= 0.15
+    color: "#22C55E"
+  - name: "Stretched"
+    max_deviation: 0.40       # 0.15 < deviation <= 0.40
+    color: "#F59E0B"
+  - name: "Overloaded"
+    max_deviation: 1000000.0  # deviation > 0.40 (effectively +inf)
+    color: "#EF4444"
+
+# Field-level RBAC. mask levels: full | initials | domain_only | none.
+rbac_roles:
+  - name: "admin"
+    mask: {}
+  - name: "analyst"
+    mask:
+      display_name: "initials"
+      email: "domain_only"
+  - name: "viewer"
+    mask:
+      display_name: "full"
+      email: "full"
+
+model_routing:
+  default: "claude-sonnet-4-6"
+  complex: "claude-opus-4-8"
+
+# Capacity Headroom agent — load classification thresholds (load_index = quota / segment baseline).
+capacity:
+  over_threshold: 1.15
+  under_threshold: 0.85
+  max_stretch: 1.15
+  colors:
+    Underloaded: "#3B82F6"
+    Balanced: "#22C55E"
+    Overloaded: "#EF4444"

@@ -1,0 +1,4 @@
+rep_id,name,email,phone,segment,region,quota,pipeline
+P1,John Smith,john.smith@initech.com,+1-415-555-0132,Enterprise,North,2400000,7000000
+P2,Maria Garcia,maria.garcia@initech.com,+1-212-555-0177,SMB,West,700000,1800000
+P3,Wei Zhang,wei.zhang@initech.com,+1-312-555-0143,Commercial,East,1500000,4200000

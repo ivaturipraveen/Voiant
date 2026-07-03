@@ -1,0 +1,62 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-[#F4F6FA] text-ink antialiased;
+    font-feature-settings: "cv11", "ss01";
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+  h1,
+  h2,
+  h3 {
+    @apply font-display tracking-tight;
+  }
+  /* Align digits in all data/metric contexts (Inter + Sora tabular figures). */
+  .tabular,
+  table,
+  .metric-value,
+  .font-mono {
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: "tnum";
+  }
+  code,
+  pre {
+    @apply font-mono;
+  }
+}
+
+@layer components {
+  .card {
+    @apply rounded-xl border border-slate-200/80 bg-white shadow-card transition-shadow;
+  }
+  .card-hover {
+    @apply hover:shadow-[0_2px_4px_rgba(27,26,56,0.05),0_8px_28px_rgba(27,26,56,0.08)];
+  }
+  .panel-title {
+    @apply flex items-center gap-2 font-display text-[11px] font-bold uppercase tracking-[0.12em] text-navy before:h-3 before:w-1 before:rounded-full before:bg-brand before:content-[''];
+  }
+  .eyebrow {
+    @apply font-display text-[11px] font-bold uppercase tracking-[0.14em] text-brand-dark;
+  }
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-lg px-3.5 py-2 text-sm font-semibold transition;
+  }
+  .btn-primary {
+    @apply btn bg-brand text-white shadow-sm hover:bg-brand-dark disabled:opacity-60;
+  }
+  .btn-ghost {
+    @apply btn border border-slate-200 bg-white text-navy hover:border-brand hover:text-brand-dark;
+  }
+  .btn-outline-light {
+    @apply btn border border-white/40 text-white hover:bg-white/10;
+  }
+  .metric-value {
+    @apply font-display text-2xl font-extrabold tracking-tight;
+  }
+  .chip {
+    @apply inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium;
+  }
+}
