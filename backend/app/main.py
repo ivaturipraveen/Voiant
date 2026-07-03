@@ -37,7 +37,13 @@ def create_app() -> FastAPI:
     )
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=[settings.voiant_frontend_origin, "http://localhost:5173"],
+        allow_origins=[
+            settings.voiant_frontend_origin,
+            "http://localhost:5173",
+            "http://localhost:5174",
+        ],
+        # Also allow any Render-hosted frontend (survives URL changes / redeploys).
+        allow_origin_regex=r"https://.*\.onrender\.com",
         allow_methods=["*"],
         allow_headers=["*"],
     )
