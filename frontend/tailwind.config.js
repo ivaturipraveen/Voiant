@@ -4,19 +4,20 @@ export default {
   theme: {
     extend: {
       colors: {
-        // Voiant brand palette (voiantclinical.com): deep indigo-navy + teal.
+        // Light theme. "navy" is repurposed as a neutral dark slate for text/icons
+        // (no more dark-blue surfaces); the accent is the green from the Voiant mark.
         navy: {
-          DEFAULT: "#211E56",
-          deep: "#16133A",
-          light: "#2E2A6B",
-          line: "#3A3680",
+          DEFAULT: "#1E293B", // slate-800 — headings & dark text
+          deep: "#0F172A",
+          light: "#334155",
+          line: "#CBD5E1",
         },
-        ink: "#1B1A38",
-        slatebody: "#5A5A77",
+        ink: "#1E293B",
+        slatebody: "#64748B",
         brand: {
-          DEFAULT: "#34B7AD", // Voiant teal
-          dark: "#268E86",
-          light: "#5FD3C9",
+          DEFAULT: "#2FA85C", // Voiant green (from the logo blade)
+          dark: "#237D44",
+          light: "#63C486",
         },
         band: {
           under: "#3B82F6",

@@ -19,7 +19,8 @@ export default function ResultRenderer({ run }: { run: AgentRunResponse }) {
       : null;
     return (
       <div className="space-y-4">
-        <div className="rounded-xl border border-brand/30 bg-cyan-50/40 p-3 text-xs font-medium text-brand-dark">
+        <div className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white p-3 text-xs font-medium text-slatebody">
+          <span className="h-1.5 w-1.5 rounded-full bg-brand" />
           Scenario Orchestrator synthesized this answer across {run.report.agents?.join(" + ")}.
         </div>
         <NarrativeCard narrative={run.narrative} source={run.narrative_source} hash={run.determinism_hash} />

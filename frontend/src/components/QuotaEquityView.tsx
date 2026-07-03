@@ -3,7 +3,7 @@ import { fmtMoney, type AgentRunResponse, type QuotaEquityReport } from "../api"
 import DataTable, { type Column } from "./DataTable";
 import Heatmap from "./Heatmap";
 import Markdown from "./Markdown";
-import { FindingsCard, Metric, SectionHead, StatStrip } from "./Shared";
+import { Avatar, FindingsCard, Metric, SectionHead, StatStrip } from "./Shared";
 
 export default function QuotaEquityView({
   run,
@@ -25,9 +25,22 @@ export default function QuotaEquityView({
 
   const outliers = [...r.per_rep].sort((a, b) => Math.abs(b.deviation) - Math.abs(a.deviation));
   const outlierCols: Column[] = [
-    { key: "rep_id", label: "Rep" },
-    { key: "display_name", label: "Name" },
-    { key: "email", label: "Email", className: "text-slatebody" },
+    {
+      key: "display_name",
+      label: "Rep",
+      render: (row) => (
+        <div className="flex items-center gap-2.5 whitespace-nowrap">
+          <Avatar name={String(row.display_name)} />
+          <div className="leading-tight">
+            <div className="flex items-center gap-1.5">
+              <span className="font-medium text-ink">{String(row.display_name)}</span>
+              <span className="font-mono text-[10px] text-slate-400">{String(row.rep_id)}</span>
+            </div>
+            <div className="text-[11px] text-slate-400">{String(row.email)}</div>
+          </div>
+        </div>
+      ),
+    },
     { key: "segment", label: "Segment", className: "text-slatebody" },
     {
       key: "fairness_ratio",
@@ -68,7 +81,6 @@ export default function QuotaEquityView({
         />
         <StatStrip>
           <Metric label="Deployed quota" value={fmtMoney(r.deployed_quota)} tone="accent" />
-          <div className="pb-1 font-display text-2xl text-slate-300">≠</div>
           <Metric label="Top-down target" value={fmtMoney(r.top_down_target)} />
           <Metric
             label="Over-assignment"

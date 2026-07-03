@@ -70,34 +70,30 @@ export default function ConfigPage({ role, onChanged }: { role: string; onChange
     <div className="space-y-4">
       {/* Header */}
       <div className="card overflow-hidden">
-        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 bg-gradient-to-r from-navy to-navy-light px-5 py-4">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 bg-slate-50 px-5 py-4">
           <div>
-            <div className="font-display text-[11px] font-bold uppercase tracking-[0.14em] text-brand-light">
+            <div className="font-display text-[11px] font-bold uppercase tracking-[0.14em] text-brand-dark">
               Interpretation ledger
             </div>
-            <div className="font-display text-lg font-bold text-white">
+            <div className="font-display text-lg font-bold text-navy">
               {draft.client_name} — Configuration
             </div>
-            <div className="text-xs text-white/70">
+            <div className="text-xs text-slatebody">
               client_id: {draft.client_id} · version v{saved.version}
             </div>
           </div>
           <div className="flex items-center gap-2">
             {editable ? (
               <>
-                <button className="btn-outline-light" onClick={revert} disabled={busy}>
+                <button className="btn-ghost" onClick={revert} disabled={busy}>
                   Reload from file ↻
                 </button>
-                <button
-                  className="btn bg-brand text-white shadow-sm hover:bg-brand-dark disabled:opacity-50"
-                  onClick={apply}
-                  disabled={!dirty || busy}
-                >
+                <button className="btn-primary" onClick={apply} disabled={!dirty || busy}>
                   {busy ? "Applying…" : dirty ? "Apply changes" : "No changes"}
                 </button>
               </>
             ) : (
-              <span className="rounded-full bg-white/10 px-3 py-1 text-xs text-white/80">🔒 Read-only (viewer)</span>
+              <span className="rounded-full bg-slate-100 px-3 py-1 text-xs text-slatebody">🔒 Read-only (viewer)</span>
             )}
           </div>
         </div>
@@ -108,7 +104,7 @@ export default function ConfigPage({ role, onChanged }: { role: string; onChange
             Changes are in-memory; “Reload from file” reverts.
           </p>
           {note && (
-            <span className="ml-3 shrink-0 rounded-md bg-cyan-50 px-2.5 py-1 text-[11px] font-medium text-brand-dark">
+            <span className="ml-3 shrink-0 rounded-md bg-brand/10 px-2.5 py-1 text-[11px] font-medium text-brand-dark">
               {note}
             </span>
           )}
