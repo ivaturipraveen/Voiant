@@ -89,6 +89,31 @@ class ShieldMasker:
 
         return MaskResult(masked=masked, entities=entity_log, redacted_count=redacted)
 
+    def mask_records_bulk(
+        self, records: list[dict], pii_fields: dict[str, str], source: str
+    ) -> list[dict]:
+        """Mask PII columns across MANY records with a single batched vault write. Scales to
+        tens/hundreds of thousands of reps (one DB round-trip, no external calls for declared
+        PII columns). With Shield off, returns the raw records unchanged."""
+        if not getattr(self.client, "enabled", True):
+            return [dict(r) for r in records]
+        items: list[tuple[str, str, str]] = []
+        for rec in records:
+            for field, label in pii_fields.items():
+                v = rec.get(field)
+                if v not in (None, ""):
+                    items.append((label, str(v), field))
+        token_map = self.store.mint_batch(items, source)
+        out: list[dict] = []
+        for rec in records:
+            m = dict(rec)
+            for field, label in pii_fields.items():
+                v = rec.get(field)
+                if v not in (None, ""):
+                    m[field] = token_map[(label, str(v))]
+            out.append(m)
+        return out
+
     def mask_record(self, record: dict, pii_fields: dict[str, str], source: str) -> tuple[dict, list[dict]]:
         """Mask a record's PII columns. `pii_fields` maps column name → token label (from the
         client config, e.g. {"display_name": "PERSON", "email": "EMAIL"}). Returns

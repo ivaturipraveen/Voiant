@@ -64,6 +64,53 @@ class ShieldStore:
             self._by_value[original_value] = token
             return token
 
+    def mint_batch(
+        self, items: list[tuple[str, str, str]], source: str
+    ) -> dict[tuple[str, str], str]:
+        """Mint tokens for many (entity_type, value, field) triples in ONE transaction.
+
+        Returns {(entity_type, value): token}. Already-vaulted values reuse their token; new
+        values are numbered sequentially per entity_type and bulk-inserted. This is what makes
+        ingest scale — masking N reps is a single DB round-trip, not N transactions.
+        """
+        with self._lock:
+            result: dict[tuple[str, str], str] = {}
+            new_rows: list[dict] = []
+            new_counters: dict[str, int] = {}
+            now = datetime.now(UTC)
+            for etype, value, field in items:
+                key = (etype, value)
+                if key in result:
+                    continue
+                existing = self._by_pair.get(key)
+                if existing is not None:
+                    result[key] = existing
+                    continue
+                n = new_counters.get(etype, self._counters.get(etype, 0)) + 1
+                new_counters[etype] = n
+                token = f"[{etype.upper()} {n}]"
+                result[key] = token
+                new_rows.append({
+                    "token": token, "entity_type": etype, "original_value": value,
+                    "field": field, "source": source, "created_at": now,
+                })
+            if new_rows:
+                with self.engine.begin() as c:
+                    for etype, n in new_counters.items():
+                        updated = c.execute(
+                            update(shield_counter).where(shield_counter.c.entity_type == etype).values(n=n)
+                        ).rowcount
+                        if not updated:
+                            c.execute(insert(shield_counter).values(entity_type=etype, n=n))
+                    c.execute(insert(shield_map), new_rows)  # bulk executemany
+                for row in new_rows:
+                    et, val, tok = row["entity_type"], row["original_value"], row["token"]
+                    self._by_pair[(et, val)] = tok
+                    self._by_token[tok] = val
+                    self._by_value[val] = tok
+                self._counters.update(new_counters)
+            return result
+
     def token_for_value(self, value: str) -> str | None:
         """Return an existing token if this exact value is already vaulted (skips Shield)."""
         return self._by_value.get(value)

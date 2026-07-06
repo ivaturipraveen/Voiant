@@ -233,22 +233,13 @@ class AppRuntime:
         )
 
     def _mask_records(self, records: list[dict], source: str) -> list[dict]:
-        """Mask PII columns through Shield. The PII column→label map comes from the client
-        config (config-driven, not hardcoded). Parallelized; order + tokens preserved."""
-        from concurrent.futures import ThreadPoolExecutor
-
+        """Mask PII columns through Shield in one batched vault write. The PII column→label
+        map comes from the client config (config-driven, not hardcoded). Scales to hundreds
+        of thousands of reps: a single DB round-trip, no external calls for declared columns."""
         pii_fields = {
             f.field: f.token_label for f in self.config_loader.current().pii_fields
         }
-
-        def _mask(rec: dict) -> dict:
-            masked, _ = self.masker.mask_record(rec, pii_fields, source=source)
-            return masked
-
-        if self.shield_client.status == "active":
-            with ThreadPoolExecutor(max_workers=12) as pool:
-                return list(pool.map(_mask, records))
-        return [_mask(rec) for rec in records]
+        return self.masker.mask_records_bulk(records, pii_fields, source=source)
 
     def set_snapshot(self, snapshot: DatasetSnapshot) -> None:
         self.snapshot = snapshot

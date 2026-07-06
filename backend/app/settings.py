@@ -43,9 +43,10 @@ class Settings(BaseSettings):
     voiant_data_csv_path: str = ""
     voiant_database_url: str = ""
     voiant_db_query: str = "reps"
-    # Safety cap on rows pulled from the source into memory. Guards against accidentally
-    # loading a huge table. Beyond this, switch to SQL aggregation (see docs/SCALING.md).
-    voiant_max_reps: int = 5000
+    # Safety valve on rows pulled into memory — generous enough for any realistic sales-rep
+    # dataset (tens of thousands). Raise it for larger tenants; it only guards against an
+    # accidental unbounded load, and logs a warning if hit.
+    voiant_max_reps: int = 100000
     # Whether to show the "MOCK DATA" label. Keep True while the DB holds seeded
     # synthetic data; set False only when real production data is loaded.
     voiant_mock_data: bool = True

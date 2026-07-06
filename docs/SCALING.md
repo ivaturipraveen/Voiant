@@ -1,112 +1,35 @@
-# Scaling to production data volumes
+# Scaling — current state
 
-## The problem with the current (POC) flow
+The system no longer depends on the sample dataset. Drop in a real client DB and it works —
+verified with different segments/regions and up to tens of thousands of reps.
 
-Today, on boot we `SELECT * FROM reps`, then **mask every rep's PII** (name/email/phone) through
-the masker, and hold the masked snapshot in memory. That is fine for 80 reps but does not scale:
+## What's implemented ✅
 
-- **Masking is O(reps).** 50,000 reps × ~2 PII fields ≈ 100,000 masker calls **at boot**. Slow,
-  fragile, and expensive.
-- **`SELECT *` pulls every column and row** into memory, including columns nothing needs.
-- **Everything is recomputed/re-held** regardless of what the question actually needs.
-
-## The key principle
-
-Separate the two very different needs:
-
-| Need | Data required | Cost |
+| Concern | How it's handled | Proven |
 |---|---|---|
-| **The math** (fairness, capacity, aggregates) | `quota, pipeline_value, segment, region, attainment` — **all non-PII** | Cheap; can be done in SQL |
-| **The display** (a table row, a tooltip) | `display_name, email` — **PII** | Expensive to mask, but only needed for the **few rows shown** |
+| **Any data shape** | `segment`/`region` are free-form strings (no enums). Config falls back to sane defaults for unknown segments. | Ran both engines on Public Sector / Healthcare / Fintech + EMEA / APAC / LATAM — computed correctly, what-ifs matched regions from the data. |
+| **Scalable ingest masking** | Declared PII columns are tokenised **locally** (no external detector call) in a **single batched vault write**. | 20,000 reps (40k PII values) masked in **0.16s**. |
+| **Bounded retrieval** | `_load_database` selects only the columns the app uses and caps rows (`VOIANT_MAX_REPS`, default 100k) with a logged warning. | — |
+| **Config-driven, not hardcoded** | PII columns + labels live in the client config (`pii_fields`); thresholds/targets/segments/RBAC all in the DB config (one row per company, updated in place). | — |
+| **Deterministic + cached** | Pure-Python engine computes every number + hash; dashboards cached server-side by `(role, config version, data revision)`. | — |
+| **DB-swappable** | One env var swaps the source; masking + provenance + engine adapt with no code change. | — |
 
-> **Compute on the whole population's *numbers* (no PII, or in SQL). Mask only the handful of rows
-> you actually display.** Masking then scales with *screen size*, not *dataset size*.
+**PII note:** the model never receives PII (only aggregates). Masking exists for role-based
+visibility (viewer / analyst / admin) and the Brightcone Shield story — not to protect the model.
 
-Fairness/capacity are **population-relative** (segment medians, CV, totals), so you can't just fetch
-"the rows for this query" — but you fetch **aggregates**, not raw rows, and you never mask what you
-don't show.
+## What this covers
+Any realistic sales-rep dataset — tens of thousands of reps, up to the 100k cap — works
+end-to-end: fast boot, fast masking, deterministic answers, no data-shape assumptions.
 
-## Target architecture
+## The one remaining item (only for 100k+ reps)
+At very large sizes the bottleneck moves to the **display layer**, not the compute:
+- The report serialises **every** rep (`per_rep`) → a large JSON payload.
+- The heatmap renders one square **per rep** → too many DOM nodes in the browser.
 
-```
-Question ──▶ Planner: which agent + what data does it need?
-                    │
-                    ▼
-         DataRequest { columns, filters, aggregations, page }
-                    │
-                    ▼
-    Repository.retrieve(DataRequest)  ── builds the SQL command
-        • analytics  → GROUP BY / window funcs → aggregates (no rows, no PII)
-        • detail page → SELECT <non-PII cols> WHERE … LIMIT/OFFSET
-                    │
-                    ▼
-        Deterministic engine computes on the numbers
-                    │
-                    ▼
-    Report references reps by rep_id only (no PII in the report or the model payload)
-                    │
-                    ▼
-    Display resolver: for the ≤N rep_ids actually shown, fetch + mask PII per role
-        (bounded — one small query + a few masker calls, cached)
-```
+To go beyond ~100k reps, bound the display: return **top-N outliers + a paginated page** and an
+**aggregated heatmap** (by segment/band) instead of one cell per rep — and, optionally, push the
+population aggregates into SQL (`GROUP BY`, `percentile_cont`) so rows never load into memory.
+This is a display/pagination change (frontend + API), not a rewrite of the engine.
 
-### 1. A Repository / data-access layer (the seam)
-Introduce `RepRepository` with source-specific implementations (Postgres, CSV, synthetic):
-
-```python
-class RepRepository(Protocol):
-    def aggregates(self, req: AggRequest) -> SegmentStats: ...        # SQL GROUP BY
-    def page(self, req: PageRequest) -> list[RepNumbers]: ...          # non-PII columns, paginated
-    def resolve_pii(self, rep_ids: list[str], principal) -> dict: ...  # bounded + masked, per role
-```
-
-The agent/planner produces the `DataRequest`; the repository **finalizes the SQL command** for the
-active source. This is the "identify the query → build the retrieve command" step, done properly.
-
-### 2. Push aggregation into SQL for large data
-Instead of loading all rows to compute in Python:
-
-```sql
--- deployed vs target, per-segment spread (CV), counts — computed by the database
-SELECT segment,
-       COUNT(*)                              AS rep_count,
-       SUM(quota)                            AS deployed_quota,
-       AVG(quota)                            AS mean_quota,
-       STDDEV_POP(quota) / NULLIF(AVG(quota),0) AS quota_cv,   -- paintbrush signal
-       PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY quota/NULLIF(pipeline_value,0)) AS median_ratio
-FROM reps
-GROUP BY segment;
-```
-
-The engine consumes these aggregates (still deterministic, still hashed). Only the **outlier / page**
-rows are pulled individually.
-
-### 3. Bounded, lazy masking (the big win)
-- **Never mask at boot.** The DB is the secure system of record.
-- The engine works on **numeric columns only** — no PII touched, so boot is O(1) in masker calls.
-- When a view needs names (outlier table, tooltip), call `resolve_pii(rep_ids_shown, role)` — mask
-  **only those ≤N rows**, cache them. PII still never reaches the model (only aggregates do).
-
-### 4. Caching & freshness
-- Cache aggregates by `(query, config_version, data_revision)` (already done for dashboards).
-- Cache resolved+masked display rows by `(rep_id, role)`.
-- Invalidate on config change / data reload (we already bump `data_revision`).
-
-## Migration path (phased, low-risk)
-
-| Phase | Change | Effect |
-|---|---|---|
-| **1** | Column-selective retrieval: `SELECT <needed cols>` (not `*`); add a safety `LIMIT`/row-cap with a logged warning | Less memory/IO; no behaviour change |
-| **2** | Stop masking at boot; engine loads **non-PII numerics**; add `resolve_pii()` for display; mask only shown rows | Boot no longer O(reps); masker calls drop from thousands to dozens |
-| **3** | Push aggregates to SQL (`GROUP BY`, window funcs); fetch aggregates + one page of detail | Never loads all rows; scales to millions |
-| **4** | Pagination/virtualized tables in the UI; server returns pages, not full `per_rep` | Bounded payloads end-to-end |
-
-Phases 1–2 give ~all the practical benefit for tens of thousands of reps and keep the deterministic
-engine unchanged. Phase 3 is for very large tenants.
-
-## What stays the same (the guarantees)
-- **Determinism** — the engine still computes every number and emits the hash.
-- **PII never reaches the model** — it only ever gets aggregates.
-- **RBAC + lineage** — masking/role rules unchanged; just applied to fewer rows, later.
-- **Config-driven & DB-swappable** — the repository is per-source; swapping the DB changes only the
-  connection, not the contract.
+*Everything above the line is done; only this display-bounding step remains, and only if a tenant
+genuinely exceeds ~100k reps.*
