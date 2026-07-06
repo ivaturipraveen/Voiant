@@ -110,8 +110,63 @@ Only the computed summary — never rows, never PII:
   "user_question": "What if we add 5 heads in the West region?" }
 ```
 
-**PII note:** masking here is **not** for the model (the model never sees PII). It controls **who
-sees names/emails in the UI** (by role) and provides the tokens-at-rest audit story.
+---
+
+## How we retrieve the data today (and how it scales)
+*(for discussion with the client)*
+
+**Current behavior**
+- **At boot: one SQL query.** `_load_database()` runs a single `SELECT <columns> FROM reps LIMIT <cap>`
+  once, masks it, and holds it as an **in-memory snapshot**.
+- **Per question: zero SQL.** Every question computes over that **already-loaded in-memory data** —
+  we do **not** hit the database again.
+
+> **SQL once at startup; in-memory for every question after that.**
+
+**Why it's built this way.** The analytics are **population-level, not lookups** — fairness needs
+the *segment median*, "paintbrush" needs the *CV across the whole segment*, deployed quota is the
+*sum of everyone*. There's nothing to "search for": the engine must see the whole population.
+Holding it in memory makes that fast and **deterministic** (same question → same hash), and for the
+realistic range (up to the ~**100k** cap) it's sub-second.
+
+**For very large data (100k+).** Loading everything into memory and computing in Python over all
+rows gets heavy (memory + boot time + a large payload). At that scale the right move is to **push
+the aggregation into SQL** — the database computes the aggregates and we fetch results, not rows:
+
+```sql
+SELECT segment,
+       COUNT(*), SUM(quota), AVG(quota),
+       STDDEV_POP(quota) / AVG(quota)                                    AS quota_cv,     -- paintbrush
+       PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY quota / pipeline_value) AS median_ratio
+FROM reps
+GROUP BY segment;
+```
+
+Then only a **page of detail rows** (top-N outliers) is pulled — never all rows into memory. That
+scales to millions.
+
+**The decision comes down to one number:**
+- **≤ ~100k reps** (essentially every sales-*rep* dataset — even a huge enterprise rarely has 100k
+  salespeople): the current **in-memory** approach is the right, simpler, deterministic choice.
+- **100k+ reps per client:** switch on the **SQL-aggregation path** (compute in the DB, fetch
+  aggregates + a page) so it's truly unbounded.
+
+---
+
+## PII — what we receive, what we send, and is it needed?
+*(for discussion with the client)*
+
+- **What we receive:** the client's rep dataset, including PII columns (names, emails).
+- **What we send to the model:** **only computed aggregates — 0 rep rows, 0 PII.** The model never
+  receives a name or email.
+- **So is PII masking needed here?** Since the model never sees PII, masking is **not** to protect
+  the model. It exists for two other reasons — **keep it only if the client wants them:**
+  1. **Role-based visibility** in the UI — admin sees full names, analyst sees initials, viewer sees
+     nothing. Real access control on the display.
+  2. **Tokens-at-rest / audit story** — the working copy stores tokens, not PII, and every read is
+     logged (the "Powered by Brightcone Shield" compliance angle).
+- If neither matters for a given client, masking can be simplified or turned off (there's already a
+  **Shield on/off** toggle) — the numbers and the model behaviour are identical either way.
 
 ---
 
