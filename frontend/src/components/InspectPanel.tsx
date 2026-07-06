@@ -80,10 +80,12 @@ export default function InspectPanel({ run }: { run: AgentRunResponse }) {
           <KV k="Your role" v={t.shield?.role} strong />
           <KV k="What you can see" v={t.shield?.masking_policy} />
           {t.shield?.masked_fields && (
-            <KV k="Masked fields" v={(t.shield.masked_fields as string[]).join(", ")} mono />
+            <KV k="PII columns (from config)" v={(t.shield.masked_fields as string[]).join(", ")} mono />
           )}
+          {t.shield?.pii_source && <KV k="PII declared by" v={t.shield.pii_source} />}
           <KV k="Reps masked in the vault" v={String(t.shield?.total_reps_masked ?? "")} />
           <KV k="Field reads logged (lineage)" v={String(t.shield?.field_reads ?? "")} />
+          {t.shield?.tokenisation && <Note>{t.shield.tokenisation}</Note>}
           {t.shield?.sample?.length > 0 && (
             <div className="mt-2 overflow-hidden rounded-lg border border-slate-200">
               <table className="w-full text-[11px]">

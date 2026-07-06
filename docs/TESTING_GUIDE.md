@@ -28,21 +28,18 @@ What to ask, what you'll see, and why it matters. No setup commands here — tho
   Answer = charts + plain-English reasoning + "assumptions to confirm"
 ```
 
-**The nav has 3 items — different doors into the same brain:**
+**The nav has 3 items:**
 
 
-| Nav item              | What it's for                                                                                                                                                                    |
-| --------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Conversational**    | Ask anything (this is where Claude runs)                                                                                                                                         |
-| **Dashboards ▾**      | A menu of 3 pre-built views: **Territory Equity** (are quotas fair?), **Capacity Overview** (can we carry more? who's overloaded?), **Executive Summary** (top 5 things to know) |
-| **Behind the Scenes** | Technical: agents, pipeline, Shield, audit                                                                                                                                       |
+| Nav item              | What it's for                                                                                             |
+| --------------------- | --------------------------------------------------------------------------------------------------------- |
+| **Conversational**    | Ask anything. The matching dashboard opens **inline with your answer** — a quota question shows the Territory view, a capacity question shows the Capacity view, an overall question shows both. |
+| **Behind the Scenes** | Technical: the live pipeline, agents, Shield vault, model routing & audit                                 |
+| **Configuration**     | The client's interpretation rules (target, thresholds, segments, RBAC, PII columns) — view & tune live    |
 
-
-> Dashboards **compute once, then cache** — re-opening a tab is instant (no reload). Use the
-> **↻ Refresh** button on a dashboard to recompute it.
-
-> Dashboards compute instantly with **no AI cost** — Claude only runs when you ask a question in
-> **Conversational**.
+> There is no separate "Dashboards" tab — the dashboards *are* the rendered answer to a question.
+> The numbers are computed deterministically (cached server-side, no AI cost); Claude only writes
+> the explanation, so it can never invent a figure.
 
 ---
 
@@ -167,13 +164,13 @@ question each time and writes an answer specific to it (~15–20s). Even the exa
 re-runs. The **numbers are always identical** (the deterministic engine), only the wording of the
 explanation may vary slightly between runs.
 
-**Tip:** include a **clear keyword** so the question routes straight to the right agent.
+**Tip:** ask **naturally — no keywords needed.** A small, fast model reads the *meaning* of your
+question and routes it to the right specialist (Quota Equity or Capacity Headroom), and the
+matching dashboard opens **inline with the answer**. Vague follow-ups ("what about the west?")
+use the conversation memory to stay on the right agent.
 
-- **Quota keywords:** fair · fairness · paintbrush · deployed · target · equity
-- **Capacity keywords:** capacity · headroom · overloaded · underloaded · carry · absorb · redistribute · load
-
-> Dashboards still cost nothing (deterministic, no Claude). Only questions you type in
-> **Conversational** call Claude — and now each one is a fresh call.
+> The deterministic engine computes every number (same question → same figures); Claude only
+> explains them, so it can never invent a number.
 
 ### 🟢 Quota fairness — *each is answered specifically*
 

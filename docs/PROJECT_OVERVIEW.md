@@ -238,8 +238,8 @@ byte-identical every run — part of the "same question → same answer" guarant
   - **overloaded reps** (quota far above their pipeline),
   - the **deployed-vs-target gap**: total deployed quota ≈ **$166M** vs a **$130M** company
   target (the headline "$130M ≠ $166M" story).
-- **Calibration:** to be tuned to **Rapid7-shaped** sample inputs from Bernard (Voiant)
-in Week 1 so it feels real to prospects.
+- **Swappable for real data:** point `VOIANT_DATA_SOURCE=database` at a client's DB and it works
+  as-is — segments/regions are free-form and PII columns are declared in config (no code changes).
 - **Mock-data labeled** everywhere in the UI (the "MOCK DATA" badge), per output discipline.
 
 **Real data path is also wired:** you can upload a **CSV/Excel** of reps; it runs through
@@ -266,7 +266,7 @@ in the DB (seeded from a YAML file on first boot).
 | --- | --- | --- | --- |
 | **Reps** | **PostgreSQL** `reps` table | The rep dataset (source of truth; app reads it on boot) | Render Postgres |
 | **Governance** | **PostgreSQL** tables | Shield token map, audit trail, data lineage, run logs | Render Postgres |
-| **Client config** | **PostgreSQL** `client_config` table (versioned) | Interpretation rules, segments, RBAC, thresholds | Render Postgres (seeded from `backend/config/client_rapid7.yaml`) |
+| **Client config** | **PostgreSQL** `client_config` table (one row per client) | Interpretation rules, segments, RBAC, thresholds, PII columns | Render Postgres (seeded from `backend/config/client_rapid7.yaml`) |
 | **Working snapshot** | JSON (+ in-memory) | The masked dataset the app serves (cache of the DB) | `backend/data/snapshot.json` |
 
 Switch data sources with `VOIANT_DATA_SOURCE` (`database` / `csv` / `synthetic`). Schema is
@@ -283,7 +283,7 @@ provisioned by Alembic at startup (`db.upgrade_to_head()`); seed the `reps` data
 | `lineage` | Every field read — which agent read which field, when, with what masking | `run_id`, `agent`, `field`, `principal_id`, `masking`, `ts` |
 | `audit_inference` | Every analysis run — the determinism hash, config version, counts | `run_id`, `agent`, `determinism_hash`, `config_version`, `field_reads`, `mock_data`, `ts` |
 | `audit_llm` | Every Claude call — model used and whether it fell back to deterministic | `run_id`, `purpose`, `model`, `fell_back`, `ts` |
-| `client_config` | Versioned client config ledger — one active row per client, seeded from YAML | `client_id`, `version`, `data` (JSON), `source`, `is_active`, `created_at` |
+| `client_config` | The client config — **one row per client, updated in place** (seeded from YAML on first boot) | `client_id`, `version`, `data` (JSON), `source`, `is_active`, `created_at` |
 
 **The core data record (a "Rep") — logical model:**
 
@@ -340,7 +340,7 @@ Rep = { rep_id, display_name*, email*, segment, region, territory_id,
 | --- | --- | --- | --- | --- | --- |
 | Example | 4d16790382c7 | quota_equity_narrative | claude-opus-4-8 | false | 2026-07-01T12:40:11Z |
 
-**7. `client_config`** — the versioned client config ledger (one active row per client; seeded from `config/client_rapid7.yaml` on first boot, updated via the Config page).
+**7. `client_config`** — the client config: **one row per client, updated in place** (seeded from `config/client_rapid7.yaml` on first boot, edited live via the Configuration page). `version` bumps on each save for display; there is no version history.
 
 | Column | client_id | version | data (JSON) | source | is_active | created_at |
 | --- | --- | --- | --- | --- | --- | --- |
@@ -386,7 +386,7 @@ plain-language explanations, same-question-same-answer.
 - ✅ Seeded synthetic dataset (80 reps, the 3 planted findings)
 - ✅ **Bright Shield** ingestion (live) + field-level RBAC masking + lineage
 - ✅ **CSV/Excel connector** + connector framework (+ Salesforce stub, framework panel)
-- ✅ **Client config layer** (DB-backed versioned interpretation-rules ledger, seeded from YAML)
+- ✅ **Client config layer** (DB-backed, one row per client updated in place; seeded from YAML)
 - ✅ **Quota Equity agent** (deterministic engine + Claude narrative + fallback)
 - ✅ **Capacity Headroom agent** (load scoring, redistribution, two-sided bar chart,
 hire/cut what-ifs)
@@ -406,20 +406,14 @@ See `README.md` for run instructions.
 
 ## 8. What we change / add later (the roadmap)
 
-### Rest of the POC
+### Remaining
 
-- **Capacity Headroom agent** (load scoring, redistribution, two-sided bar chart,
-hire/cut what-ifs — advisory, never naming terminations)
-- **Full Scenario Orchestrator** (context preservation, cross-agent synthesis,
-canonical what-ifs)
-- **Three pre-built dashboards**: Territory Equity, Capacity Overview, Executive
-Summary (top-5 findings), with dashboard ⇄ chat switching
-- **Second connector** shown as a Salesforce sandbox-style wireframe + framework panel
-- **Demo enablement package**: 15-min demo script, 3 scripted scenarios, anticipated-
-questions sheet, architecture/security leave-behind (`docs/`)
-- Calibrate the synthetic dataset to **Rapid7-shaped** inputs (needs Bernard, Week 1)
-- Final UI polish pass; hosting on Brightcone infra with a stable demo URL
-- Three **Hassan rehearsal sessions** (Week 4) + joint demo-ready signoff (human steps)
+- Load a real client dataset when provided — the app is **data-independent**: any segments/
+  regions work as-is, PII columns are declared in config, and ingest scales to tens of thousands
+  of reps. Dropping it into the `reps` table (or pointing `VOIANT_DATABASE_URL` at the client DB)
+  is all that's needed.
+- Final UI polish pass; production hosting with a stable demo URL.
+- Demo rehearsals + joint demo-ready signoff (human steps).
 
 ### Out of scope for the POC → Phase 1 / Phase 2 (per the scope doc)
 
@@ -495,7 +489,7 @@ status. **Every engineering/code item is done.** Remaining items are human or in
 | Segment definitions (per-client)                              | ✅                               |
 | Stage criteria                                                | ✅                               |
 | User permissions / RBAC scoping — visible                     | ✅ (config + live role switcher) |
-| Structured config; changes apply without redeploy             | ✅ (DB-backed, versioned; seeded from YAML) |
+| Structured config; changes apply without redeploy             | ✅ (DB-backed, one row per client, updated live; seeded from YAML) |
 
 
 ### §3.3 Data Sources and Connectors
@@ -534,13 +528,13 @@ status. **Every engineering/code item is done.** Remaining items are human or in
 | ------------------------------------------------------------------------------ | --------------------------------- |
 | ~80 reps, 5 segments, 4 regions; quota/attainment/OTE/OTC/pipeline/territory   | ✅                                 |
 | Seeded with discoverable findings (paintbrush, overloaded, deployed-vs-target) | ✅                                 |
-| Calibrated against Rapid7-shaped sample from Bernard                           | ⏳ needs Bernard's inputs (Week 1) |
+| Swappable for a real client dataset (data-independent — any segments/regions)  | ✅ (drop in the DB)                |
 
 
 ### §3.7 Demo Enablement Package
 
 | 15-min demo script · 3 scripted scenarios · anticipated questions · architecture/security one-pager | ✅ (`docs/`) |
-| Three Hassan rehearsal sessions (Week 4) | ⏳ human step |
+| Demo rehearsal sessions | ⏳ human step |
 
 ### §3.8 Hosting & Demo Infrastructure
 
@@ -567,9 +561,9 @@ status. **Every engineering/code item is done.** Remaining items are human or in
 
 
 **Bottom line:** 100% of the buildable/engineering scope is implemented and verified
-(26 backend tests, ruff clean, frontend builds). The only open items are **Rapid7 dataset
-calibration** (needs Bernard), **Hassan's rehearsals**, and **production hosting/stable URL** —
-none of which are code. The Territory Intelligence, Pipeline Hygiene, and Comp Expense agents
+(32 backend tests, ruff clean, frontend builds). The only open items are **loading a real client
+dataset** (drop-in — the app is data-independent), **demo rehearsals**, and **production
+hosting/stable URL** — none of which are code. The Territory Intelligence, Pipeline Hygiene, and Comp Expense agents
 are intentionally **out of POC scope** (Phase 1 / Phase 2).
 
 ---

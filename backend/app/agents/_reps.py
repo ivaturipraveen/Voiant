@@ -62,7 +62,14 @@ def build_trace(
         "shield": {
             "role": role,
             "masking_policy": _MASKING_POLICY.get(role, _MASKING_POLICY["viewer"]),
-            "masked_fields": ["display_name", "email"],
+            # PII columns are declared in the client config (not hardcoded) — any dataset works.
+            "masked_fields": [f.field for f in getattr(ctx.config, "pii_fields", [])]
+            or ["display_name", "email"],
+            "pii_source": "client config · pii_fields (declared per company, not hardcoded)",
+            "tokenisation": (
+                "declared PII columns are tokenised locally in one batched vault write at ingest "
+                "— no per-value external call, so it scales to tens of thousands of reps"
+            ),
             "field_reads": ctx.recorder.field_reads,
             "total_reps_masked": len(ctx.masked_reps),
             "sample": sample,

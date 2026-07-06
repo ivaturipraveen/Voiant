@@ -194,9 +194,23 @@ Result: a plain-English explanation of the computed figures — no new numbers i
 - The frontend renders **charts directly from `report`** (heatmap, load bars, rollups) —
   `frontend/src/components/{Heatmap,QuotaEquityView,CapacityView}.tsx`. **No chart uses hardcoded
   data**; every value binds to a `report` field.
-- The **technical trace** (`InspectPanel.tsx`) replays all of the above: routing + confidence,
-  input parsing, shield sample, engine numbers, findings, segments, assumptions, data-selection,
-  and the exact model input/output.
+- The **technical trace** (`InspectPanel.tsx`) — opened with **🔍 Technical details** under any
+  answer — replays all of the above, step by step:
+  - **Routing** — chosen agent, classifier model, confidence, and the model's reason.
+  - **Input parsing** — the what-if parameters pulled from the text (e.g. `n=5, region=West`).
+  - **Secure read through Shield** — your role, what you can see, and now the **PII columns taken
+    from the client config** (`pii_fields`, *declared per company — not hardcoded*), plus a note
+    that declared columns are tokenised **locally in one batched write** (scales to tens of
+    thousands of reps). A 5-row sample shows token → re-hydrated value for your role.
+  - **Engine** numbers + determinism hash, **findings**, **segment breakdown** (segments are
+    free-form, straight from the data), **assumptions**.
+  - **Data retrieval & payload** — column-selective + capped `SELECT`, 0 raw rows / 0 PII to the
+    model, final payload size.
+  - **Model** — the exact system prompt, JSON input, and returned narrative.
+  - **Session memory** — the remembered turns.
+
+  So every recent change is visible in the trace: semantic routing (no keywords), config-driven
+  PII, local batched masking, and data-independent segments/regions.
 
 ---
 
@@ -215,9 +229,10 @@ database, when PII is masked, and when it is un-masked**. A key point up front:
 
 ### Phase A — Boot (once): read the DB and mask PII into a vault
 
-1. **Read the database.** `runtime.py::_load_database()` runs the configured query:
+1. **Read the database.** `runtime.py::_load_database()` runs the configured query — selecting
+   only the columns the app uses (not `SELECT *`) and capped by `VOIANT_MAX_REPS`:
    ```sql
-   SELECT * FROM reps;          -- VOIANT_DB_QUERY=reps
+   SELECT rep_id, display_name, email, segment, region, quota, pipeline_value, … FROM reps LIMIT …;
    ```
    It returns raw rows — **with real PII**:
    ```json
@@ -225,14 +240,16 @@ database, when PII is masked, and when it is un-masked**. A key point up front:
      "segment": "Enterprise", "region": "West", "quota": 2400000, "pipeline_value": 7000000, ... }
    ```
 
-2. **Mask the sensitive fields.** For every row, `masker.mask_record(rec, SENSITIVE_FIELDS)` masks
-   `{display_name, email, phone}`. Each value is sent to the Bright Masker (`POST /mask`), which
-   returns the PII spans; the masker mints a **stable token** and records the mapping in the
-   **`shield_map` vault**:
+2. **Mask the PII columns (config-driven, batched).** The PII columns + their token labels come
+   from the client config (`pii_fields`, e.g. `display_name→PERSON`, `email→EMAIL`) — not
+   hardcoded. Because these are *declared* PII columns, the whole value is tokenised **locally in
+   one batched vault write** (no per-value network call), so ingest scales to tens of thousands of
+   reps. The mapping is recorded in the **`shield_map` vault**:
    | Real value | Token (stored) | Vault row |
    |---|---|---|
    | `Liam Rossi` | `[PERSON 6]` | `shield_map: [PERSON 6] ↔ Liam Rossi` |
    | `liam.rossi@acme.com` | `[EMAIL 3]` | `shield_map: [EMAIL 3] ↔ liam.rossi@acme.com` |
+   *(The Bright Masker detector is reserved for free-text fields with unknown PII.)*
 
 3. **Keep only the masked row in memory.** The working snapshot holds tokens, never raw PII:
    ```json
