@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+import hashlib
+import string
+
 from ..agents import orchestrator
 from ..agents.base import AgentContext
 from ..audit.recorder import AuditRecorder
@@ -33,9 +36,6 @@ def run_agent(
     rt: AppRuntime, question: str, role: str, session_id: str | None = None,
     force_agent: str | None = None, allow_llm: bool = True,
 ) -> AgentRunResponse:
-    if rt.snapshot is None:
-        rt.bootstrap()
-
     sid = rt.ensure_session(session_id)
     principal = Principal.for_role(role)
 
@@ -45,6 +45,12 @@ def run_agent(
         plan = orchestrator.plan(
             question, rt.llm, rt.last_agent(sid), rt.session_memory(sid)
         )
+
+    if plan.mode == "general":
+        return _run_general(rt, question, sid, plan)
+
+    if rt.snapshot is None:
+        rt.bootstrap()
 
     if plan.mode == "synthesis":
         return _run_synthesis(rt, question, principal, sid, plan, allow_llm)
@@ -81,6 +87,63 @@ def run_agent(
         suggested_followups=orchestrator.suggested_followups(agent_name),
         session_id=sid,
         trace=result.trace,
+        memory=rt.session_memory(sid),
+    )
+
+
+def _run_general(
+    rt: AppRuntime, question: str, sid: str, plan: orchestrator.Plan,
+) -> AgentRunResponse:
+    run_id = rt.new_run_id()
+    q = (question or "").strip().lower().translate(str.maketrans("", "", string.punctuation))
+    q = " ".join(q.split())
+    if q in {"help", "what can you do", "what can i ask", "who are you"}:
+        narrative = (
+            "I can help with Voiant sales-planning questions: quota fairness, "
+            "paintbrushed segments, overloaded reps, team headroom, redistribution, "
+            "and add/cut headcount what-ifs."
+        )
+    elif q in {"thanks", "thank you", "thx", "ok", "okay", "cool", "got it"}:
+        narrative = "Got it. Ask me a sales-planning question when you want to run an analysis."
+    else:
+        narrative = (
+            "Hi. Ask me about quota fairness, capacity headroom, overloaded reps, "
+            "paintbrushed segments, or add/cut headcount scenarios."
+        )
+
+    rt.record_turn(sid, question, "general", run_id)
+    digest = hashlib.sha256(f"general:{question}".encode()).hexdigest()[:16]
+    return AgentRunResponse(
+        run_id=run_id,
+        agent="scenario_orchestrator",
+        agent_version="1.0.0",
+        report_type="general",
+        question=question,
+        routed_from=plan.routed_from,
+        report={"kind": "general_chat"},
+        narrative=narrative,
+        narrative_source="deterministic-fallback",
+        determinism_hash=digest,
+        mock_data=rt.snapshot.mock_data if rt.snapshot is not None else True,
+        suggested_followups=[
+            "Is each rep's quota fair?",
+            "How much more quota can the team carry?",
+            "Which reps are overloaded?",
+            "What if we add 5 heads in the West region?",
+        ],
+        session_id=sid,
+        trace={
+            "routing": {
+                "chosen_agent": "scenario_orchestrator",
+                "routed_from": plan.routed_from,
+                "agents_available": ["quota_equity", "capacity_headroom"],
+                **(plan.detail or {}),
+            },
+            "engine": {
+                "analysis_ran": False,
+                "reason": "General chat response; no sales-planning metrics requested.",
+            },
+        },
         memory=rt.session_memory(sid),
     )
 

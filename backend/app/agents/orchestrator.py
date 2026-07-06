@@ -8,6 +8,7 @@ actual data on every invocation (never serves cached numbers).
 
 from __future__ import annotations
 
+import string
 from dataclasses import dataclass
 
 from . import registry
@@ -18,7 +19,7 @@ _SYNTHESIS_AGENTS = ["quota_equity", "capacity_headroom"]
 
 @dataclass
 class Plan:
-    mode: str  # "single" | "synthesis"
+    mode: str  # "single" | "synthesis" | "general"
     agents: list[str]
     routed_from: str
     detail: dict | None = None  # how classification happened (for the technical trace)
@@ -30,6 +31,18 @@ def plan(
 ) -> Plan:
     """Route the question to an agent. Classification is model-driven (a small model reads
     the meaning); if the model is offline we fall back to conversation context, then default."""
+    general = _general_chat_intent(question)
+    if general is not None:
+        return Plan(
+            "general",
+            [],
+            "general-chat",
+            {
+                "method": "deterministic-general-chat",
+                "reason": general,
+            },
+        )
+
     if llm is not None and getattr(llm, "enabled", False):
         c = llm.classify(question, registry.names(), history)
         if c:
@@ -45,12 +58,51 @@ def plan(
             return Plan("single", [agent], "model-classified", detail)
 
     # Model unavailable — no keyword guessing: stay on the last agent, else default.
-    if last_agent:
+    if last_agent in registry.names():
         return Plan("single", [last_agent], "context-fallback",
                     {"method": "conversation-context",
                      "reason": f"model offline — stayed on last agent ({last_agent})"})
     return Plan("single", ["quota_equity"], "default",
                 {"method": "default", "reason": "model offline — defaulted to quota_equity"})
+
+
+def _general_chat_intent(question: str) -> str | None:
+    """Catch obvious non-analytical chat before defaulting into a metric agent.
+
+    This is intentionally conservative: it only catches short greetings/thanks/help prompts
+    that do not contain sales-planning terms. Ambiguous business questions still go through
+    the normal classifier/fallback path.
+    """
+    q = (question or "").strip().lower().translate(str.maketrans("", "", string.punctuation))
+    q = " ".join(q.split())
+    if not q:
+        return "Empty prompt; no sales-planning analysis requested."
+
+    sales_terms = {
+        "quota", "capacity", "headroom", "rep", "reps", "territory", "territories",
+        "segment", "pipeline", "attainment", "fair", "fairness", "overloaded",
+        "underloaded", "paintbrush", "paintbrushed", "target", "deployed",
+        "redistribute", "redistribution", "cut", "hire", "add heads",
+    }
+    if any(term in q for term in sales_terms):
+        return None
+
+    greetings = {
+        "hi", "hello", "hey", "hey there", "good morning", "good afternoon",
+        "good evening", "how are you", "how r u", "how are you doing",
+    }
+    thanks = {"thanks", "thank you", "thx", "ok", "okay", "cool", "got it"}
+    help_prompts = {"help", "what can you do", "what can i ask", "who are you"}
+
+    if q in greetings:
+        return "Greeting detected; no agent analysis needed."
+    if q in thanks:
+        return "Acknowledgement detected; no agent analysis needed."
+    if q in help_prompts:
+        return "General capability question detected; no metric computation needed."
+    if len(q.split()) <= 4 and any(q.startswith(prefix) for prefix in ("hi ", "hello ", "hey ")):
+        return "Greeting detected; no agent analysis needed."
+    return None
 
 
 def run_single(ctx: AgentContext, agent_name: str) -> tuple[AgentResult, str]:

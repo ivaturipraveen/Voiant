@@ -50,6 +50,22 @@ def test_model_receives_history():
     assert llm.seen_history == hist
 
 
+def test_general_greeting_does_not_route_to_analysis():
+    llm = FakeLLM({"agent": "quota_equity", "confidence": 0.9, "reason": "fallback", "model": "haiku"})
+    p = orchestrator.plan("Hi, how are you?", llm=llm, last_agent=None)
+    assert p.mode == "general"
+    assert p.agents == []
+    assert p.routed_from == "general-chat"
+    assert llm.seen_history is None
+
+
+def test_greeting_with_sales_question_still_routes_to_analysis():
+    llm = FakeLLM({"agent": "quota_equity", "confidence": 0.9, "reason": "fairness", "model": "haiku"})
+    p = orchestrator.plan("Hi, is each rep's quota fair?", llm=llm, last_agent=None)
+    assert p.mode == "single"
+    assert p.agents == ["quota_equity"]
+
+
 def test_fallback_to_last_agent_when_model_offline():
     p = orchestrator.plan("show me the top 5", llm=None, last_agent="capacity_headroom")
     assert p.agents == ["capacity_headroom"]
