@@ -4,20 +4,9 @@ from __future__ import annotations
 
 from enum import StrEnum
 
-
-class Segment(StrEnum):
-    ENTERPRISE = "Enterprise"
-    COMMERCIAL = "Commercial"
-    MIDMARKET = "Mid-Market"
-    SMB = "SMB"
-    STRATEGIC = "Strategic"
-
-
-class Region(StrEnum):
-    NORTH = "North"
-    SOUTH = "South"
-    EAST = "East"
-    WEST = "West"
+# NOTE: segment and region are intentionally NOT enums — they are free-form strings taken
+# straight from the client's data, so any real dataset's segments/regions work as-is (e.g.
+# "Public Sector", "EMEA") without code changes. Only values the ENGINE produces are enums.
 
 
 class FairnessBand(StrEnum):

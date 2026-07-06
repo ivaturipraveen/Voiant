@@ -6,7 +6,7 @@ from decimal import Decimal
 
 from pydantic import BaseModel
 
-from ..domain.enums import FairnessBand, FlagSeverity, Region, Segment
+from ..domain.enums import FairnessBand, FlagSeverity
 
 
 class Assumption(BaseModel):
@@ -32,8 +32,8 @@ class FairnessResult(BaseModel):
     rep_id: str
     display_name: str
     email: str
-    segment: Segment
-    region: Region
+    segment: str
+    region: str
     quota: Decimal
     opportunity: Decimal
     fairness_ratio: float  # quota / opportunity
@@ -45,8 +45,8 @@ class FairnessResult(BaseModel):
 class HeatmapCell(BaseModel):
     rep_id: str
     display_name: str
-    segment: Segment
-    region: Region
+    segment: str
+    region: str
     fairness_ratio: float
     deviation: float
     band: FairnessBand
@@ -54,7 +54,7 @@ class HeatmapCell(BaseModel):
 
 
 class SegmentSummary(BaseModel):
-    segment: Segment
+    segment: str
     rep_count: int
     deployed_quota: Decimal
     total_pipeline: Decimal

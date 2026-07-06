@@ -131,7 +131,7 @@ def report_hash(report: QuotaEquityReport, config_version: int, snapshot_id: str
             for fr in report.per_rep
         ],
         "segments": [
-            [s.segment.value, s.quota_cv, s.is_paintbrushed] for s in report.segments
+            [s.segment, s.quota_cv, s.is_paintbrushed] for s in report.segments
         ],
         "findings": [[f.code, f.subject, f.severity.value] for f in report.findings],
     }
@@ -171,20 +171,20 @@ def _build_findings(
         )
 
     # 2. Paintbrushed segments (sorted by name for stable order).
-    for s in sorted(segments, key=lambda x: x.segment.value):
+    for s in sorted(segments, key=lambda x: x.segment):
         if s.is_paintbrushed:
             findings.append(
                 Finding(
                     code="PAINTBRUSH_SEGMENT",
                     severity=FlagSeverity.WARN,
-                    subject=s.segment.value,
+                    subject=s.segment,
                     message=(
-                        f"The {s.segment.value} segment shows near-uniform quota across "
+                        f"The {s.segment} segment shows near-uniform quota across "
                         f"{s.rep_count} reps (coefficient of variation {s.quota_cv:.3f}), "
                         f"a 'paintbrushed' assignment that ignores territory differences."
                     ),
                     evidence={
-                        "segment": s.segment.value,
+                        "segment": s.segment,
                         "rep_count": s.rep_count,
                         "quota_cv": s.quota_cv,
                     },
@@ -202,11 +202,11 @@ def _build_findings(
                 subject=fr.rep_id,
                 message=(
                     f"{fr.rep_id} carries quota {fr.deviation * 100:.0f}% above the "
-                    f"{fr.segment.value} segment median relative to pipeline — overloaded."
+                    f"{fr.segment} segment median relative to pipeline — overloaded."
                 ),
                 evidence={
                     "rep_id": fr.rep_id,
-                    "segment": fr.segment.value,
+                    "segment": fr.segment,
                     "fairness_ratio": fr.fairness_ratio,
                     "segment_median_ratio": fr.segment_median_ratio,
                     "deviation": fr.deviation,

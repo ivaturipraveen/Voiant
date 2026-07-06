@@ -7,7 +7,6 @@ import re
 
 from ..domain.engine import capacity as engine
 from ..domain.engine.stats import determinism_hash
-from ..domain.enums import Region
 from ..schemas.capacity import CapacityReport
 from ._reps import build_reps, build_trace
 from .base import Agent, AgentContext, AgentResult
@@ -74,7 +73,7 @@ class CapacityHeadroomAgent(Agent):
                     for a in report.assumptions
                 ],
                 "segments": [
-                    {"segment": r.segment.value, "rep_count": r.rep_count,
+                    {"segment": r.segment, "rep_count": r.rep_count,
                      "overloaded": r.overloaded, "underloaded": r.underloaded}
                     for r in report.rollups
                 ],
@@ -128,11 +127,10 @@ def _detect_scenario(question: str, reps, config):
     q = (question or "").lower()
     nums = [int(x) for x in _NUM_RE.findall(q)]
     n = nums[0] if nums else None
-    region = None
-    for r in Region:
-        if r.value.lower() in q:
-            region = r.value
-            break
+    # Match against the regions ACTUALLY present in the data (no hardcoded region list),
+    # so any client's regions work. Longest first so "North East" beats "East".
+    regions = sorted({str(r.region) for r in reps}, key=len, reverse=True)
+    region = next((rg for rg in regions if rg.lower() in q), None)
 
     cut = any(w in q for w in ("cut", "reduce", "remove", "lay off", "layoff", "fewer"))
     add = any(w in q for w in ("add", "hire", "more heads", "headcount", "new rep"))
@@ -142,7 +140,7 @@ def _detect_scenario(question: str, reps, config):
     if nums:
         how.append(f"Number '{n}' extracted from the text via the digit pattern \\b(\\d+)\\b.")
     if region:
-        how.append(f"Region '{region}' matched against the known regions ({', '.join(r.value for r in Region)}).")
+        how.append(f"Region '{region}' matched against the regions present in the data ({', '.join(regions)}).")
 
     if cut and n:
         how.append("Trigger word (cut/reduce/remove) + a count → simulate REMOVING headcount.")
@@ -182,7 +180,7 @@ def _payload(report: CapacityReport) -> dict:
         "balanced": report.balanced,
         "underloaded": report.underloaded,
         "rollups": [
-            {"segment": r.segment.value, "headroom": str(r.total_headroom),
+            {"segment": r.segment, "headroom": str(r.total_headroom),
              "overloaded": r.overloaded, "underloaded": r.underloaded}
             for r in report.rollups
         ],

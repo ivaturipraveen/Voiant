@@ -20,6 +20,17 @@ from .store import ShieldStore
 
 _TOKEN_RE = re.compile(r"\[[A-Z0-9 /]+ \d+\]")
 
+# Structured PII columns → the token label. For these the whole cell value IS the PII, so we
+# tokenise locally (no external detector) which keeps ingest O(reps) local ops, not N network
+# calls. Free-text fields not listed here still go through the Bright Masker detector.
+_STRUCTURED_PII = {
+    "display_name": "PERSON",
+    "name": "PERSON",
+    "full_name": "PERSON",
+    "email": "EMAIL",
+    "phone": "PHONE",
+}
+
 
 @dataclass
 class MaskResult:
@@ -54,6 +65,18 @@ class ShieldMasker:
                 entities=[{"entity_type": "cached", "masked": cached, "score": 1.0, "redactable": True}],
                 redacted_count=1,
             )
+        # Structured PII columns: we already KNOW the whole value is PII (a name, an email),
+        # so tokenise it locally — NO external detector call. This is what lets ingest scale
+        # to thousands of reps: masking becomes local vault ops, not N network round-trips.
+        label = _STRUCTURED_PII.get(field)
+        if label is not None:
+            token = self.store.token_for(label, text, field, source)
+            return MaskResult(
+                masked=token,
+                entities=[{"entity_type": label, "masked": token, "score": 1.0, "redactable": True}],
+                redacted_count=1,
+            )
+        # Unknown / free-text field → fall back to the Bright Masker detector.
         detected = self.client.pii_text_detection(text)
         if not detected:
             return MaskResult(masked=text, entities=[])

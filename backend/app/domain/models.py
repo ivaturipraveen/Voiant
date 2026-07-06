@@ -12,8 +12,6 @@ from typing import Annotated
 
 from pydantic import BaseModel, BeforeValidator, ConfigDict
 
-from .enums import Region, Segment
-
 _CENTS = Decimal("0.01")
 
 
@@ -37,7 +35,7 @@ class Territory(BaseModel):
     model_config = ConfigDict(frozen=True)
 
     id: str
-    region: Region
+    region: str
     account_count: int
     named_accounts: int
     total_addressable_pipeline: Money
@@ -51,8 +49,8 @@ class Rep(BaseModel):
     rep_id: str
     display_name: str
     email: str
-    segment: Segment
-    region: Region
+    segment: str
+    region: str
     territory_id: str
     quota: Money
     ote: Money

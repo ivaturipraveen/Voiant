@@ -62,7 +62,7 @@ class QuotaEquityAgent(Agent):
                     for a in report.assumptions
                 ],
                 "segments": [
-                    {"segment": s.segment.value, "rep_count": s.rep_count,
+                    {"segment": s.segment, "rep_count": s.rep_count,
                      "quota_cv": round(s.quota_cv, 4), "is_paintbrushed": s.is_paintbrushed}
                     for s in report.segments
                 ],
@@ -136,7 +136,7 @@ def _narrative_payload(report: QuotaEquityReport) -> dict:
         "rep_count": report.rep_count,
         "segments": [
             {
-                "segment": s.segment.value,
+                "segment": s.segment,
                 "rep_count": s.rep_count,
                 "quota_cv": s.quota_cv,
                 "is_paintbrushed": s.is_paintbrushed,
@@ -167,7 +167,7 @@ def _deterministic_narrative(report: QuotaEquityReport) -> str:
 
     paint = [s for s in report.segments if s.is_paintbrushed]
     if paint:
-        names = ", ".join(s.segment.value for s in paint)
+        names = ", ".join(s.segment for s in paint)
         lines.append(
             f"**Paintbrushed assignment detected** in {names}: quota is near-uniform across reps "
             f"(coefficient of variation near zero), which ignores real territory differences."

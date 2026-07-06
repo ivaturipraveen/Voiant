@@ -53,10 +53,10 @@ def _dataset_stats(rt: AppRuntime, cfg, snap) -> dict:
     base.update({
         "deployed_quota": str(qe.deployed_quota),
         "top_down_target": str(qe.top_down_target),
-        "paintbrush_segment": next((s.segment.value for s in qe.segments if s.is_paintbrushed), None),
+        "paintbrush_segment": next((s.segment for s in qe.segments if s.is_paintbrushed), None),
         "overloaded_rep_ids": [rl.rep_id for rl in cap.per_rep if rl.classification == "Overloaded"],
         "segments": sorted({str(x.segment) for x in qe.segments}),
-        "regions": sorted({r.region.value for r in reps}),
+        "regions": sorted({r.region for r in reps}),
     })
     return base
 

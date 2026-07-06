@@ -6,15 +6,14 @@ from decimal import Decimal
 
 from pydantic import BaseModel
 
-from ..domain.enums import Region, Segment
 from .analysis import Assumption, Finding
 
 
 class RepLoad(BaseModel):
     rep_id: str
     display_name: str
-    segment: Segment
-    region: Region
+    segment: str
+    region: str
     quota: Decimal
     baseline: Decimal  # segment mean quota
     load_index: float  # quota / baseline
@@ -25,7 +24,7 @@ class RepLoad(BaseModel):
 
 
 class CapacitySegmentRollup(BaseModel):
-    segment: Segment
+    segment: str
     rep_count: int
     mean_quota: Decimal
     total_quota: Decimal
@@ -38,7 +37,7 @@ class CapacitySegmentRollup(BaseModel):
 class RedistributionMove(BaseModel):
     from_rep: str
     to_rep: str
-    segment: Segment
+    segment: str
     amount: Decimal  # quota to move from an overloaded rep to one with headroom
 
 

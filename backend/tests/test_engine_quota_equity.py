@@ -25,7 +25,7 @@ def test_paintbrush_detection(dataset, config):
     report = eng.compute(_reps(dataset), config)
     paint = [s for s in report.segments if s.is_paintbrushed]
     assert len(paint) == 1
-    assert paint[0].segment.value == "Commercial"
+    assert paint[0].segment == "Commercial"
     assert paint[0].quota_cv < 0.05
 
 

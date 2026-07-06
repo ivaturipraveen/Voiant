@@ -166,18 +166,52 @@ class AppRuntime:
         manifest = {"mock_data": True, "source": f"csv:{path.name}", "rep_count": len(result.records)}
         return result.records, manifest, f"csv-{path.stem}"
 
+    # Columns the application actually uses (engine numerics + display PII). We SELECT these
+    # explicitly instead of "*" so a wide table doesn't drag unused columns into memory.
+    _REP_COLUMNS = (
+        "rep_id", "display_name", "email", "segment", "region", "territory_id",
+        "quota", "ote", "otc", "pipeline_value", "attainment",
+    )
+
     def _load_database(self) -> tuple[list[dict], dict, str]:
-        """Read reps from the SQL database (reuses the shared engine)."""
+        """Read reps from the SQL database — column-selective and capped (see docs/SCALING.md).
+
+        For a bare table name we build `SELECT <known cols> FROM t LIMIT cap+1`; a custom
+        SELECT is run as-is and capped in Python. If the row count hits the cap we log a
+        warning and truncate rather than loading an unbounded result into memory.
+        """
         from sqlalchemy import text
 
         from .connectors.normalize import normalize_rows
 
         q = (self.settings.voiant_db_query or "reps").strip()
-        sql = q if " " in q else f"SELECT * FROM {q}"
-        with self.engine.connect() as c:
-            result = c.execute(text(sql))
-            cols = list(result.keys())
-            rows = [dict(zip(cols, r, strict=False)) for r in result.fetchall()]
+        cap = max(1, int(self.settings.voiant_max_reps))
+        is_table = " " not in q
+
+        def _run(sql: str) -> list[dict]:
+            with self.engine.connect() as c:
+                result = c.execute(text(sql))
+                cols = list(result.keys())
+                return [dict(zip(cols, r, strict=False)) for r in result.fetchall()]
+
+        if is_table:
+            projected = ", ".join(self._REP_COLUMNS)
+            try:
+                rows = _run(f"SELECT {projected} FROM {q} LIMIT {cap + 1}")
+            except Exception as e:  # schema differs (missing column) → fall back to * (still capped)
+                logger.info("[RUNTIME] Column projection failed (%s); falling back to SELECT *", e)
+                rows = _run(f"SELECT * FROM {q} LIMIT {cap + 1}")
+        else:
+            rows = _run(q)[: cap + 1]
+
+        if len(rows) > cap:
+            logger.warning(
+                "[RUNTIME] Source returned more than the %d-row cap — truncating. Raise "
+                "VOIANT_MAX_REPS or move to SQL aggregation for large tenants (docs/SCALING.md).",
+                cap,
+            )
+            rows = rows[:cap]
+
         records, _ = normalize_rows(rows)
         manifest = {"mock_data": self.settings.voiant_mock_data, "source": "database", "rep_count": len(records)}
         return records, manifest, "database"
