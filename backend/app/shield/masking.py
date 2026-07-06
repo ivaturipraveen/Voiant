@@ -20,17 +20,6 @@ from .store import ShieldStore
 
 _TOKEN_RE = re.compile(r"\[[A-Z0-9 /]+ \d+\]")
 
-# Structured PII columns → the token label. For these the whole cell value IS the PII, so we
-# tokenise locally (no external detector) which keeps ingest O(reps) local ops, not N network
-# calls. Free-text fields not listed here still go through the Bright Masker detector.
-_STRUCTURED_PII = {
-    "display_name": "PERSON",
-    "name": "PERSON",
-    "full_name": "PERSON",
-    "email": "EMAIL",
-    "phone": "PHONE",
-}
-
 
 @dataclass
 class MaskResult:
@@ -48,8 +37,11 @@ class ShieldMasker:
     def status(self) -> str:
         return self.client.status
 
-    def mask_value(self, value: str, field: str, source: str) -> MaskResult:
-        """Detect PII in a single field value and replace redactable spans with tokens."""
+    def mask_value(self, value: str, field: str, source: str, label: str | None = None) -> MaskResult:
+        """Mask a single field value. If `label` is given, the column is a declared PII field
+        (from the client config) and the whole value is tokenised locally with that label —
+        NO external call, so ingest is O(reps) local ops. Without a label, fall back to the
+        Bright Masker detector (for free-text fields with unknown PII)."""
         if value is None:
             return MaskResult(masked="", entities=[])
         text = str(value)
@@ -65,18 +57,15 @@ class ShieldMasker:
                 entities=[{"entity_type": "cached", "masked": cached, "score": 1.0, "redactable": True}],
                 redacted_count=1,
             )
-        # Structured PII columns: we already KNOW the whole value is PII (a name, an email),
-        # so tokenise it locally — NO external detector call. This is what lets ingest scale
-        # to thousands of reps: masking becomes local vault ops, not N network round-trips.
-        label = _STRUCTURED_PII.get(field)
-        if label is not None:
+        # Declared PII column: the whole value is PII → tokenise locally with the config label.
+        if label:
             token = self.store.token_for(label, text, field, source)
             return MaskResult(
                 masked=token,
                 entities=[{"entity_type": label, "masked": token, "score": 1.0, "redactable": True}],
                 redacted_count=1,
             )
-        # Unknown / free-text field → fall back to the Bright Masker detector.
+        # Free-text field → fall back to the Bright Masker detector.
         detected = self.client.pii_text_detection(text)
         if not detected:
             return MaskResult(masked=text, entities=[])
@@ -100,13 +89,15 @@ class ShieldMasker:
 
         return MaskResult(masked=masked, entities=entity_log, redacted_count=redacted)
 
-    def mask_record(self, record: dict, sensitive_fields: frozenset[str], source: str) -> tuple[dict, list[dict]]:
-        """Mask every sensitive field in a record. Returns (masked_record, entity_log)."""
+    def mask_record(self, record: dict, pii_fields: dict[str, str], source: str) -> tuple[dict, list[dict]]:
+        """Mask a record's PII columns. `pii_fields` maps column name → token label (from the
+        client config, e.g. {"display_name": "PERSON", "email": "EMAIL"}). Returns
+        (masked_record, entity_log)."""
         out = dict(record)
         log: list[dict] = []
-        for fname in sensitive_fields:
+        for fname, label in pii_fields.items():
             if fname in out and out[fname] not in (None, ""):
-                res = self.mask_value(out[fname], fname, source)
+                res = self.mask_value(out[fname], fname, source, label=label)
                 out[fname] = res.masked
                 log.extend(res.entities)
         return out, log

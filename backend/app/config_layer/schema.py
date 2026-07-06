@@ -14,6 +14,13 @@ class InterpretationRule(BaseModel):
     rule: str
 
 
+class PiiField(BaseModel):
+    """A column that holds PII + the label its tokens use (e.g. field=email → [EMAIL n])."""
+    model_config = ConfigDict(frozen=True)
+    field: str
+    token_label: str = "PII"
+
+
 class SegmentDefinition(BaseModel):
     model_config = ConfigDict(frozen=True)
     name: str
@@ -90,6 +97,14 @@ class ClientConfig(BaseModel):
     rbac_roles: list[RoleMasking]
     model_routing: ModelRouting = ModelRouting()
     capacity: CapacityConfig = CapacityConfig()
+    # Which columns hold PII and how to label their tokens — declared per client, NOT
+    # hardcoded, so any dataset's PII columns are masked correctly. Defaults cover the
+    # standard rep shape; a client with e.g. a "contact_email" column just lists it here.
+    pii_fields: list[PiiField] = [
+        PiiField(field="display_name", token_label="PERSON"),
+        PiiField(field="email", token_label="EMAIL"),
+        PiiField(field="phone", token_label="PHONE"),
+    ]
 
     def segment_def(self, name: str) -> SegmentDefinition | None:
         for s in self.segment_definitions:

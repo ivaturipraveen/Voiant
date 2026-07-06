@@ -17,7 +17,6 @@ from .settings import Settings
 from .shield.client import BrightShieldClient
 from .shield.lineage import LineageStore
 from .shield.masking import ShieldMasker
-from .shield.policy import SENSITIVE_FIELDS
 from .shield.store import ShieldStore
 from .synth import generator
 
@@ -234,11 +233,16 @@ class AppRuntime:
         )
 
     def _mask_records(self, records: list[dict], source: str) -> list[dict]:
-        """Mask sensitive fields through Shield (parallelized; order + tokens preserved)."""
+        """Mask PII columns through Shield. The PII column→label map comes from the client
+        config (config-driven, not hardcoded). Parallelized; order + tokens preserved."""
         from concurrent.futures import ThreadPoolExecutor
 
+        pii_fields = {
+            f.field: f.token_label for f in self.config_loader.current().pii_fields
+        }
+
         def _mask(rec: dict) -> dict:
-            masked, _ = self.masker.mask_record(rec, SENSITIVE_FIELDS, source=source)
+            masked, _ = self.masker.mask_record(rec, pii_fields, source=source)
             return masked
 
         if self.shield_client.status == "active":

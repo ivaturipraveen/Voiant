@@ -59,7 +59,7 @@ class ConfigLoader:
                 raw = self._read_seed_file()
                 raw["client_id"] = raw.get("client_id", self._client_id)
                 cfg = ClientConfig.model_validate(raw)  # validate BEFORE persisting
-                data = self._store.insert_version(
+                data = self._store.upsert(
                     self._client_id, cfg.model_dump(mode="json"), source="seed"
                 )
             cfg = ClientConfig.model_validate(data)
@@ -67,13 +67,13 @@ class ConfigLoader:
             return cfg
 
     def update(self, patch: dict) -> ClientConfig:
-        """Apply a partial patch to the live config, validate, and PERSIST it as a
-        new version (durable, becomes the active config). Version bumps by one."""
+        """Apply a partial patch to the live config, validate, and PERSIST it by updating
+        the client's single config row in place (version bumps by one)."""
         with self._lock:
             base = self.current().model_dump(mode="json")
             merged = _deep_merge(base, patch or {})
             cfg = ClientConfig.model_validate(merged)  # validate BEFORE persisting
-            data = self._store.insert_version(
+            data = self._store.upsert(
                 self._client_id, cfg.model_dump(mode="json"), source="update"
             )
             cfg = ClientConfig.model_validate(data)
@@ -89,9 +89,6 @@ class ConfigLoader:
             if self._snapshot is None:
                 return self.load()
             return self._snapshot
-
-    def versions(self) -> list[dict]:
-        return self._store.list_versions(self._client_id)
 
     @property
     def client_id(self) -> str:

@@ -83,7 +83,7 @@ export default function ConfigPage({ role, onChanged }: { role: string; onChange
           <p className="text-xs text-slatebody">
             These are the client-specific rules the agents apply. Edit a lever and{" "}
             <b className="text-navy">Apply</b> — every answer and dashboard recomputes against it live.
-            Changes are saved as a new config version in the database.
+            Changes update this client’s single config row in the database (one row per company).
           </p>
           {note && (
             <span className="ml-3 shrink-0 rounded-md bg-brand/10 px-2.5 py-1 text-[11px] font-medium text-brand-dark">

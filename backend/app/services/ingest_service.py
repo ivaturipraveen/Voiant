@@ -5,7 +5,6 @@ from __future__ import annotations
 from ..connectors.registry import csv_connector
 from ..runtime import AppRuntime, DatasetSnapshot
 from ..schemas.api import IngestResponse
-from ..shield.policy import SENSITIVE_FIELDS
 
 
 def ingest_csv(rt: AppRuntime, content: bytes, filename: str, set_active: bool = False) -> IngestResponse:
@@ -13,11 +12,13 @@ def ingest_csv(rt: AppRuntime, content: bytes, filename: str, set_active: bool =
     connector = csv_connector(content, filename)
     result = connector.run(content=content, filename=filename)
 
+    # PII columns → token labels come from the client config (not hardcoded).
+    pii_fields = {f.field: f.token_label for f in rt.config_loader.current().pii_fields}
     masked_reps: list[dict] = []
     entities_total = 0
     masked_fields: set[str] = set()
     for rec in result.records:
-        masked, ent_log = rt.masker.mask_record(rec, SENSITIVE_FIELDS, source=filename)
+        masked, ent_log = rt.masker.mask_record(rec, pii_fields, source=filename)
         masked_reps.append(masked)
         entities_total += len(ent_log)
         for e in ent_log:
