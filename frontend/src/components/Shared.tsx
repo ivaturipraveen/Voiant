@@ -8,6 +8,15 @@ const SEV: Record<string, string> = {
   info: "border-slate-300 bg-slate-50 text-slate-600",
 };
 
+// Shared Recharts tooltip styling — a clean card, consistent across every chart.
+export const CHART_TOOLTIP = {
+  borderRadius: 10,
+  border: "1px solid #E2E7F1",
+  boxShadow: "0 10px 30px -14px rgba(33,30,86,0.25)",
+  fontSize: 12,
+  padding: "6px 10px",
+} as const;
+
 // A small, monochrome initials chip for a rep — quiet visual anchor for people/demographic
 // rows. Works with masked names too (initials from "L. R.", a dot for a fully-redacted name).
 export function Avatar({ name }: { name: string }) {
@@ -88,18 +97,19 @@ export function Metric({
   value: string;
   tone?: "neutral" | "accent" | "danger" | "good";
 }) {
-  const color =
-    tone === "danger"
-      ? "text-band-overloaded"
-      : tone === "good"
-      ? "text-band-equitable"
-      : tone === "accent"
-      ? "text-brand-dark"
-      : "text-navy";
+  const T = {
+    danger: { text: "text-band-overloaded", bar: "bg-band-overloaded" },
+    good: { text: "text-band-equitable", bar: "bg-band-equitable" },
+    accent: { text: "text-brand-dark", bar: "bg-gradient-to-r from-brand-light to-brand-dark" },
+    neutral: { text: "text-navy", bar: "bg-navy/20" },
+  }[tone];
   return (
-    <div className="stat-tile flex-1 basis-[150px]">
-      <div className="text-[11px] font-medium uppercase tracking-wide text-slatebody">{label}</div>
-      <div className={`mt-1 metric-value ${color}`}>{value}</div>
+    <div className="group relative flex-1 basis-[160px] overflow-hidden rounded-xl border border-navy/[0.07] bg-white px-4 py-3 shadow-card transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_2px_6px_rgba(33,30,86,0.05),0_16px_40px_-12px_rgba(33,30,86,0.18)]">
+      <span className={`absolute inset-x-0 top-0 h-[3px] ${T.bar}`} />
+      <div className="text-[10.5px] font-semibold uppercase tracking-[0.09em] text-slatebody">{label}</div>
+      <div className={`mt-1.5 font-display text-[26px] font-extrabold leading-none tracking-tight tabular-nums ${T.text}`}>
+        {value}
+      </div>
     </div>
   );
 }

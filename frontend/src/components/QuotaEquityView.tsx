@@ -1,9 +1,9 @@
-import { Bar, BarChart, Cell, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import { Bar, BarChart, CartesianGrid, Cell, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { fmtMoney, type AgentRunResponse, type QuotaEquityReport } from "../api";
 import DataTable, { type Column } from "./DataTable";
 import Heatmap from "./Heatmap";
 import Markdown from "./Markdown";
-import { Avatar, FindingsCard, Metric, SectionHead, StatStrip } from "./Shared";
+import { Avatar, CHART_TOOLTIP, FindingsCard, Metric, SectionHead, StatStrip } from "./Shared";
 
 export default function QuotaEquityView({
   run,
@@ -105,11 +105,12 @@ export default function QuotaEquityView({
             desc="The bars show how many reps fall in each fairness band. Below, each segment's quota spread (CV = coefficient of variation): a value near 0.000 means everyone got the same quota — 'paintbrushed'."
           />
           <ResponsiveContainer width="100%" height={180}>
-            <BarChart data={bandCounts} margin={{ top: 5, right: 5, bottom: 5, left: -20 }}>
-              <XAxis dataKey="band" tick={{ fontSize: 10 }} interval={0} />
-              <YAxis tick={{ fontSize: 10 }} allowDecimals={false} />
-              <Tooltip />
-              <Bar dataKey="count" radius={[4, 4, 0, 0]}>
+            <BarChart data={bandCounts} margin={{ top: 6, right: 6, bottom: 5, left: -18 }}>
+              <CartesianGrid vertical={false} stroke="#EAEEF6" />
+              <XAxis dataKey="band" tick={{ fontSize: 10, fill: "#5A5A77" }} interval={0} tickLine={false} axisLine={{ stroke: "#E2E7F1" }} />
+              <YAxis tick={{ fontSize: 10, fill: "#8A8AA6" }} allowDecimals={false} tickLine={false} axisLine={false} width={28} />
+              <Tooltip cursor={{ fill: "rgba(33,30,86,0.04)" }} contentStyle={CHART_TOOLTIP} />
+              <Bar dataKey="count" radius={[5, 5, 0, 0]} maxBarSize={46}>
                 {bandCounts.map((b) => (
                   <Cell key={b.band} fill={b.color} />
                 ))}

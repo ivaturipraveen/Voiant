@@ -1,7 +1,7 @@
-import { Bar, BarChart, Cell, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import { Bar, BarChart, CartesianGrid, Cell, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { fmtMoney, type AgentRunResponse, type CapacityReport } from "../api";
 import DataTable, { type Column } from "./DataTable";
-import { FindingsCard, Metric, NarrativeCard, SectionHead, StatStrip } from "./Shared";
+import { CHART_TOOLTIP, FindingsCard, Metric, NarrativeCard, SectionHead, StatStrip } from "./Shared";
 
 export default function CapacityView({
   run,
@@ -88,17 +88,22 @@ export default function CapacityView({
         />
         <ResponsiveContainer width="100%" height={260}>
           <BarChart data={bars} margin={{ top: 5, right: 10, bottom: 5, left: 0 }}>
-            <XAxis dataKey="rep" tick={false} axisLine={false} />
+            <CartesianGrid vertical={false} stroke="#EAEEF6" />
+            <XAxis dataKey="rep" tick={false} axisLine={false} tickLine={false} />
             <YAxis
-              tick={{ fontSize: 10 }}
-              label={{ value: "$K vs baseline", angle: -90, position: "insideLeft", style: { fontSize: 10 } }}
+              tick={{ fontSize: 10, fill: "#8A8AA6" }}
+              tickLine={false}
+              axisLine={false}
+              label={{ value: "$K vs baseline", angle: -90, position: "insideLeft", style: { fontSize: 10, fill: "#8A8AA6" } }}
             />
             <Tooltip
+              cursor={{ fill: "rgba(33,30,86,0.04)" }}
+              contentStyle={CHART_TOOLTIP}
               formatter={(v: number) => [`${v >= 0 ? "+" : ""}${v}K`, "vs baseline"]}
               labelFormatter={(l) => `Rep R${l}`}
             />
-            <ReferenceLine y={0} stroke="#475569" />
-            <Bar dataKey="delta" radius={[2, 2, 0, 0]}>
+            <ReferenceLine y={0} stroke="#C3CADB" />
+            <Bar dataKey="delta" radius={[3, 3, 0, 0]}>
               {bars.map((b, i) => (
                 <Cell key={i} fill={b.color} />
               ))}
