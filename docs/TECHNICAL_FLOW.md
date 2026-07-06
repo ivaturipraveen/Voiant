@@ -15,30 +15,28 @@ answered against that in-memory copy.
 ## Phase A — Load the data once (at boot)
 
 ```
-        ┌──────────────────────────┐
-        │   reps table (client DB)  │
-        └────────────┬──────────────┘
-                     │   read only the columns we use, capped (VOIANT_MAX_REPS)
-                     ▼
-        ┌──────────────────────────┐
-        │   Mask the PII columns    │   which columns are PII is set in the CONFIG
-        │   (names, emails)         │   (per client, not hardcoded)
-        │   batched · local · fast  │   → no per-row calls to an external service
-        └───────┬───────────────┬───┘
-                │               │
-                ▼               ▼
-   ┌────────────────────┐   ┌──────────────────────────────┐
-   │  Shield vault       │   │  In-memory snapshot           │
-   │  token ↔ real value │   │  tokens only — NO raw PII     │
-   │  [PERSON 6]↔L. Rossi│   │  the working copy for the app │
-   └────────────────────┘   └──────────────────────────────┘
+   ┌───────────────────────────────────────────────┐
+   │   reps table   ·   client database             │
+   └───────────────────────┬───────────────────────┘
+                           │  ①  read only the columns we use, capped (VOIANT_MAX_REPS)
+                           ▼
+   ┌───────────────────────────────────────────────┐
+   │   Mask the PII columns  (names, emails)        │  ②  which columns are PII is set
+   │   batched · local · fast — no external calls   │      in the CONFIG (per client)
+   └───────────────┬───────────────────┬────────────┘
+                   │                   │  ③  stored two ways ↓
+        ┌──────────▼─────────┐   ┌─────▼──────────────────────────┐
+        │  Shield vault       │   │  In-memory snapshot            │
+        │  token ↔ real value │   │  tokens only · NO raw PII      │
+        │  [PERSON 6] ↔ Rossi │   │  ◀ the app works from this     │
+        └────────────────────┘   └────────────────────────────────┘
+
+   ↳ Runs ONCE at startup.  Every question then reads the snapshot — no DB hit per question.
 ```
 
-- Runs **once** at startup. Every question then reads this in-memory snapshot — **we never
-re-query the database per question.**
-- Scales to tens of thousands of reps (masking is a single batched write, not N network calls).
-- Swap the client's database (`VOIANT_DATABASE_URL`) and it just works — any segments/regions,
-PII columns declared in config.
+- **Scales** to tens of thousands of reps — masking is a single batched write, not N network calls.
+- **Swap the database** (`VOIANT_DATABASE_URL`) and it just works — any segments/regions; PII
+  columns are declared in config, not hardcoded.
 
 ---
 
@@ -47,31 +45,34 @@ PII columns declared in config.
 Example used throughout: **"What if we add 5 heads in the West region?"** · role **admin**
 
 ```
-   You ask a question in plain English
-            │
-            ▼
-   1. CLASSIFY            (AI · small model)   → picks the specialist by MEANING, no keywords
-            │                                     → "Capacity Headroom", 95% confident
-            ▼
-   2. PARSE INPUT         (deterministic)      → pulls the numbers from the text
-            │                                     → add 5 heads, region = West
-            ▼
-   3. READ + UN-MASK      (per your role)       → reads the snapshot; shows names per role
-            │                                     (admin: full · analyst: initials · viewer: hidden)
-            ▼
-   4. COMPUTE             (engine · pure Python)→ every number + finding, + a determinism hash
-            │                                     → team can carry $26.6M more; +5 in West → $38.5M
-            ▼
-   5. BUILD THE PAYLOAD   (aggregates only)     → a small summary — 0 rep rows, 0 PII (~2 KB)
-            │
-            ▼
-   6. EXPLAIN             (AI · Claude)          → writes the plain-English answer over those
-            │                                     numbers — never invents one
-            ▼
-   7. RESPOND + AUDIT                            → charts render from the numbers; the run is logged
+   QUESTION   "What if we add 5 heads in the West region?"   ·   role: admin
+       │
+       ▼
+   ●  1 · CLASSIFY        [ AI ]     picks the agent by MEANING — no keywords
+   │                                 → Capacity Headroom · 95% confident
+   ▼
+   ●  2 · PARSE INPUT     [rules ]   pull the parameters from the text
+   │                                 → add 5 heads · region = West
+   ▼
+   ●  3 · READ + UNMASK   [secure]   read snapshot; names shown per role · every read logged
+   │                                 → admin: full · analyst: initials · viewer: hidden
+   ▼
+   ●  4 · COMPUTE         [engine]   ALL numbers + findings + a determinism hash
+   │                                 → team can carry +$26.6M · +5 in West → $38.5M
+   ▼
+   ●  5 · BUILD PAYLOAD   [build ]   boil down to a small summary
+   │                                 → segment totals + findings + question · 0 rows · 0 PII (~2 KB)
+   ▼
+   ●  6 · EXPLAIN         [ AI ]     write the answer over those numbers — never invents one
+   │                                 → plain-English narrative
+   ▼
+   ●  7 · RESPOND + AUDIT [  ✓  ]    charts render from the numbers · the run is logged
+
+   Legend   [AI] = Claude (steps 1 & 6 only)   ·   [engine]/[rules]/[build] = deterministic   ·   [secure] = role-masked + logged
 ```
 
-Only steps **1** and **6** use the AI. Steps **2–5** are deterministic — same question, same numbers.
+Only steps **1** and **6** touch the AI. Everything that produces a number is deterministic —
+so the same question always returns the same figures.
 
 ---
 

@@ -220,19 +220,42 @@ export default function InspectPanel({ run }: { run: AgentRunResponse }) {
           {t.data_selection?.note && <Note>{t.data_selection.note}</Note>}
         </Step>
 
-        <Step n={(n += 1)} title="Model — what we sent & what came back">
-          <KV k="Model" v={t.model?.model} mono strong />
-          <KV k="Fell back to deterministic" v={String(t.model?.fell_back)} />
-          <Collapsible label="System prompt (instructions to the model)">
+        <Step n={(n += 1)} title="Model — exactly what we sent & what came back">
+          <KV k="Model used" v={t.model?.model} mono strong />
+          <KV
+            k="Answer written by"
+            v={t.model?.fell_back ? "built-in template (AI unavailable)" : "the AI model"}
+          />
+          <p className="mt-1 text-[10.5px] leading-snug text-slatebody">
+            We send the AI <b>two things</b> — the rules (system prompt) and the computed numbers
+            (JSON) — and it returns <b>one thing</b>: the written answer. Expand each below.
+          </p>
+
+          <div className="mt-2 text-[10px] font-bold uppercase tracking-wide text-slatebody">▲ Sent to the model</div>
+          <Collapsible
+            label="1 · System prompt — the rules we give the AI"
+            hint={`${(t.model?.system_prompt || "").length} chars`}
+          >
             <pre className="whitespace-pre-wrap break-words text-[11px] text-slatebody">{t.model?.system_prompt}</pre>
           </Collapsible>
-          <Collapsible label="Input SENT to the model (computed numbers as JSON)">
+          <Collapsible
+            label="2 · Input — the exact computed numbers (JSON)"
+            hint={`${(t.model?.input_sent || "").length} chars · 0 PII`}
+          >
             <pre className="whitespace-pre-wrap break-words font-mono text-[11px] text-navy">
               {prettyJson(t.model?.input_sent)}
             </pre>
           </Collapsible>
-          <Collapsible label="Output RECEIVED from the model (the explanation)">
-            <pre className="whitespace-pre-wrap break-words text-[11px] text-ink">{t.model?.output_received}</pre>
+
+          <div className="mt-3 text-[10px] font-bold uppercase tracking-wide text-slatebody">▼ Received from the model</div>
+          <Collapsible
+            label="3 · The answer the AI wrote back"
+            hint={`${(t.model?.output_received || "").length} chars`}
+            defaultOpen
+          >
+            <pre className="whitespace-pre-wrap break-words text-[11px] leading-relaxed text-ink">
+              {t.model?.output_received}
+            </pre>
           </Collapsible>
         </Step>
 
@@ -488,21 +511,29 @@ function Td({ children, mono, accent }: { children: ReactNode; mono?: boolean; a
   );
 }
 
-function Collapsible({ label, children }: { label: string; children: ReactNode }) {
-  const [open, setOpen] = useState(false);
+function Collapsible({
+  label,
+  hint,
+  defaultOpen,
+  children,
+}: {
+  label: string;
+  hint?: string;
+  defaultOpen?: boolean;
+  children: ReactNode;
+}) {
+  const [open, setOpen] = useState(!!defaultOpen);
   return (
-    <div className="mt-1.5">
+    <div className="mt-2 overflow-hidden rounded-lg border border-slate-200">
       <button
         onClick={() => setOpen((o) => !o)}
-        className="text-[11px] font-semibold text-brand-dark hover:underline"
+        className="flex w-full items-center gap-2 bg-slate-50 px-2.5 py-1.5 text-left text-[11px] font-semibold text-navy hover:bg-slate-100"
       >
-        {open ? "▾" : "▸"} {label}
+        <span className="text-brand-dark">{open ? "▾" : "▸"}</span>
+        <span>{label}</span>
+        {hint && <span className="ml-auto font-mono text-[10px] font-normal text-slate-400">{hint}</span>}
       </button>
-      {open && (
-        <div className="mt-1 max-h-64 overflow-auto rounded-lg border border-slate-200 bg-slate-50 p-2.5">
-          {children}
-        </div>
-      )}
+      {open && <div className="max-h-72 overflow-auto p-2.5">{children}</div>}
     </div>
   );
 }
