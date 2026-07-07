@@ -99,6 +99,11 @@ class QuotaEquityAgent(Agent):
     def _narrate(self, ctx: AgentContext, report: QuotaEquityReport, det_hash: str) -> tuple[str, str, dict]:
         payload = _narrative_payload(report)
         payload["user_question"] = ctx.question  # answer THIS question specifically
+        if ctx.conversation:  # prior turns → answer follow-ups coherently (cite only computed numbers)
+            payload["recent_conversation"] = [
+                {"question": t.get("question", ""), "agent": t.get("agent", "")}
+                for t in ctx.conversation[-3:]
+            ]
         payload_json = json.dumps(payload, default=str)
         complex_reasoning = len(report.findings) >= 4  # route hard cases to Opus
         cache_key = _cache_key(det_hash, ctx.question)
@@ -107,9 +112,10 @@ class QuotaEquityAgent(Agent):
         system_prompt = prompts.quota_equity_narrative_prompt()
         if ctx.allow_llm and ctx.llm is not None and getattr(ctx.llm, "enabled", False):
             res = ctx.llm.narrate(payload_json, cache_key, complex_reasoning, system_prompt=system_prompt)
-            ctx.recorder.record_llm("quota_equity_narrative", res.model, res.fell_back)
+            toks = {"input_tokens": res.input_tokens, "output_tokens": res.output_tokens, "cost_usd": res.cost_usd}
+            ctx.recorder.record_llm("quota_equity_narrative", res.model, res.fell_back, detail=toks)
             meta = {"model": res.model, "fell_back": res.fell_back,
-                    "system_prompt": system_prompt, "input_sent": payload_json}
+                    "system_prompt": system_prompt, "input_sent": payload_json, **toks}
             if not res.fell_back and res.text:
                 return res.text, res.model, meta
         else:

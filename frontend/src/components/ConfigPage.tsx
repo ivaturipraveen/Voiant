@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { api, fmtMoney, type ClientConfig } from "../api";
+import { Icon } from "./icons";
 
 // A dedicated, presentable page for the client-specific configuration ("interpretation
 // ledger"). Everything the agents apply lives here — and the key numeric levers are
@@ -75,7 +76,9 @@ export default function ConfigPage({ role, onChanged }: { role: string; onChange
                 {busy ? "Applying…" : dirty ? "Apply changes" : "No changes"}
               </button>
             ) : (
-              <span className="rounded-full bg-slate-100 px-3 py-1 text-xs text-slatebody">🔒 Read-only (viewer)</span>
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-slate-100 px-3 py-1 text-xs text-slatebody">
+                <Icon name="lock" className="h-3.5 w-3.5" /> Read-only (viewer)
+              </span>
             )}
           </div>
         </div>

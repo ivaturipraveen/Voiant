@@ -1,5 +1,6 @@
 import { type ReactNode, useState } from "react";
 import type { AgentRunResponse } from "../api";
+import { Icon, type IconName } from "./icons";
 
 // Technical "what happened inside" view for one run: how the question was classified, what data
 // was read + masked, the exact numbers/findings the engine produced, what we sent to the model,
@@ -226,6 +227,17 @@ export default function InspectPanel({ run }: { run: AgentRunResponse }) {
             k="Answer written by"
             v={t.model?.fell_back ? "built-in template (AI unavailable)" : "the AI model"}
           />
+          {!t.model?.fell_back && (t.model?.input_tokens || t.model?.output_tokens) ? (
+            <>
+              <KV
+                k="Tokens this request"
+                v={`${Number(t.model.input_tokens).toLocaleString()} in · ${Number(t.model.output_tokens).toLocaleString()} out`}
+              />
+              {t.model?.cost_usd ? (
+                <KV k="Estimated cost" v={`$${Number(t.model.cost_usd).toFixed(4)}`} />
+              ) : null}
+            </>
+          ) : null}
           <p className="mt-1 text-[10.5px] leading-snug text-slatebody">
             We send the AI <b>two things</b> — the rules (system prompt) and the computed numbers
             (JSON) — and it returns <b>one thing</b>: the written answer. Expand each below.
@@ -311,12 +323,12 @@ function PipelineFlow({
   const hasParams = Object.keys(params).length > 0;
   const stages = [
     {
-      icon: "💬",
+      icon: "chat",
       title: "Your question",
       value: `“${run.question}”`,
     },
     {
-      icon: "🧭",
+      icon: "route",
       title: "Semantic classification",
       value: `${agentLabel(String(routing?.chosen_agent ?? run.agent))}${conf ? ` · ${conf} confident` : ""}`,
       sub: routing?.reason ? String(routing.reason) : undefined,
@@ -324,7 +336,7 @@ function PipelineFlow({
     ...(parsing
       ? [
           {
-            icon: "🔎",
+            icon: "search",
             title: "Input parsed",
             value: hasParams
               ? `${intentLabel(String(parsing.detected_intent))} — ${Object.entries(params)
@@ -336,25 +348,25 @@ function PipelineFlow({
         ]
       : []),
     {
-      icon: "🗄️",
+      icon: "database",
       title: "Data retrieved",
       value: `${p.rows_used} of ${p.rows_available} reps used · ${p.rows_filtered_out} filtered out`,
       sub: "From the in-memory masked snapshot (not a new DB query per question).",
     },
     {
-      icon: "🧮",
+      icon: "compute",
       title: "Engine computes (pure Python)",
       value: "Aggregates + findings + assumptions over all reps",
       sub: p.computation ? String(p.computation) : undefined,
     },
     {
-      icon: "📦",
+      icon: "box",
       title: "Payload finalized",
       value: `${p.payload_bytes} bytes JSON — 0 raw rows, 0 PII`,
       sub: "The computed summary + your question, serialized to JSON.",
     },
     {
-      icon: "🤖",
+      icon: "cpu",
       title: "Sent to model",
       value: String(p.destination_model),
       sub: "The model explains the numbers — it never computes or sees raw data.",
@@ -371,8 +383,8 @@ function PipelineFlow({
             {i < stages.length - 1 && (
               <span className="absolute left-[13px] top-6 h-full w-px bg-brand/25" aria-hidden />
             )}
-            <span className="z-10 grid h-7 w-7 shrink-0 place-items-center rounded-full bg-white text-sm ring-1 ring-brand/30">
-              {s.icon}
+            <span className="z-10 grid h-7 w-7 shrink-0 place-items-center rounded-full bg-white text-brand-dark ring-1 ring-brand/30">
+              <Icon name={s.icon as IconName} className="h-3.5 w-3.5" />
             </span>
             <div className="min-w-0 flex-1 pt-0.5">
               <div className="flex items-baseline gap-2">

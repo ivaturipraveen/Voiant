@@ -67,7 +67,7 @@ class AppRuntime:
         self.masker = ShieldMasker(self.shield_client, self.shield_store)
         self.llm = LLMClient(
             settings.anthropic_api_key, settings.voiant_model_default, settings.voiant_model_complex,
-            settings.voiant_model_classifier,
+            settings.voiant_model_classifier, settings.voiant_model_pricing,
         )
 
         self.snapshot: DatasetSnapshot | None = None

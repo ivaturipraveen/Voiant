@@ -17,20 +17,27 @@ logger = logging.getLogger(__name__)
 
 
 class LLMResult:
-    def __init__(self, text: str, model: str | None, fell_back: bool):
+    def __init__(
+        self, text: str, model: str | None, fell_back: bool,
+        input_tokens: int = 0, output_tokens: int = 0, cost_usd: float = 0.0,
+    ):
         self.text = text
         self.model = model
         self.fell_back = fell_back
+        self.input_tokens = input_tokens
+        self.output_tokens = output_tokens
+        self.cost_usd = cost_usd
 
 
 class LLMClient:
     def __init__(
         self, api_key: str | None, default_model: str, complex_model: str,
-        classifier_model: str | None = None,
+        classifier_model: str | None = None, pricing: dict | None = None,
     ):
         self.default_model = default_model
         self.complex_model = complex_model
         self.classifier_model = classifier_model or default_model
+        self._pricing = pricing or {}
         self._enabled = bool(api_key)
         self._client = None
         if self._enabled:
@@ -46,7 +53,15 @@ class LLMClient:
     def enabled(self) -> bool:
         return self._enabled and self._client is not None
 
-    def _call(self, model: str, system: str, user: str, max_tokens: int = 1500) -> str:
+    def cost_of(self, model: str | None, input_tokens: int, output_tokens: int) -> float:
+        """Estimated USD cost from token usage × configured per-model list price."""
+        p = self._pricing.get(model or "")
+        if not p:
+            return 0.0
+        return round(input_tokens / 1e6 * p.get("input", 0) + output_tokens / 1e6 * p.get("output", 0), 6)
+
+    def _call(self, model: str, system: str, user: str, max_tokens: int = 1500) -> tuple[str, dict]:
+        """Return (text, {input_tokens, output_tokens}) — real token usage from the API."""
         msg = self._client.messages.create(
             model=model,
             max_tokens=max_tokens,
@@ -58,7 +73,12 @@ class LLMClient:
             text = getattr(block, "text", None)
             if text:
                 parts.append(text)
-        return "\n".join(parts).strip()
+        u = getattr(msg, "usage", None)
+        tokens = {
+            "input_tokens": int(getattr(u, "input_tokens", 0) or 0),
+            "output_tokens": int(getattr(u, "output_tokens", 0) or 0),
+        }
+        return "\n".join(parts).strip(), tokens
 
     def classify(
         self, question: str, choices: list[str], history: list[dict] | None = None
@@ -78,7 +98,7 @@ class LLMClient:
                     f'"{h.get("question", "")}" → {h.get("agent", "")}' for h in history[-3:]
                 )
                 user += f"\n\nRecent conversation (most recent last): {recent}"
-            out = self._call(self.classifier_model, prompts.classifier_prompt(), user, max_tokens=200)
+            out, _tok = self._call(self.classifier_model, prompts.classifier_prompt(), user, max_tokens=200)
             data = _extract_json(out)
             agent = str(data.get("agent", "")).strip()
             if agent not in valid:
@@ -110,8 +130,12 @@ class LLMClient:
         model = self.complex_model if complex_reasoning else self.default_model
         system = system_prompt or prompts.quota_equity_narrative_prompt()
         try:
-            text = self._call(model, system, payload_json, max_tokens=1500)
-            return LLMResult(text=text, model=model, fell_back=False)
+            text, tokens = self._call(model, system, payload_json, max_tokens=1500)
+            return LLMResult(
+                text=text, model=model, fell_back=False,
+                input_tokens=tokens["input_tokens"], output_tokens=tokens["output_tokens"],
+                cost_usd=self.cost_of(model, tokens["input_tokens"], tokens["output_tokens"]),
+            )
         except Exception as e:
             logger.warning("[LLM] narrate failed (%s); deterministic fallback", e)
             return LLMResult(text="", model=model, fell_back=True)

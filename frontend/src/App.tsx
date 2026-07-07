@@ -1,35 +1,29 @@
-import { type ReactNode, useEffect, useRef, useState } from "react";
-import { api, type AgentRunResponse, type Health } from "./api";
+import { useEffect, useRef, useState } from "react";
+import {
+  api,
+  type AgentRunResponse,
+  type Assumption,
+  type CapacityReport,
+  type ExecutiveSummaryResponse,
+  type Health,
+  type QuotaEquityReport,
+} from "./api";
+import AppHeader from "./components/AppHeader";
+import AuditLogPage from "./components/AuditLogPage";
 import BehindTheScenes from "./components/BehindTheScenes";
 import ChatPanel from "./components/ChatPanel";
 import ConfigPage from "./components/ConfigPage";
-import HelpGlossary from "./components/HelpGlossary";
+import LoginPage from "./components/LoginPage";
+import { AssumptionsFooter } from "./components/GovernancePanels";
 import InspectPanel from "./components/InspectPanel";
-import { AssumptionsFooter, ConfigLedgerPanel, GovernanceTrail } from "./components/GovernancePanels";
 import ResultRenderer from "./components/ResultRenderer";
-import RoleBanner from "./components/RoleBanner";
-import Sidebar from "./components/Sidebar";
+import RightRail from "./components/RightRail";
+import Sidebar, { type Mode } from "./components/Sidebar";
 import ThinkingIndicator from "./components/ThinkingIndicator";
-import Topbar from "./components/Topbar";
+import CapacityPage from "./components/dashboards/CapacityPage";
+import ExecutivePage from "./components/dashboards/ExecutivePage";
+import TerritoryEquityPage from "./components/dashboards/TerritoryEquityPage";
 
-type Mode = "ask" | "platform" | "config";
-
-// Top-level nav is 3 items. The dashboards are NOT separate tabs — asking a question
-// renders the matching dashboard inline (quota → Territory, capacity → Capacity, a
-// question spanning both → both), so the conversational view is the single home.
-const TITLES: Record<Mode, { eyebrow: string; title: string; sub: string }> = {
-  ask: { eyebrow: "Conversational", title: "Ask Voiant Intelligence", sub: "Ask in plain English — the right dashboard opens with your answer" },
-  platform: { eyebrow: "Technical", title: "Behind the Scenes", sub: "Agents, pipeline, Shield, model routing & audit — live" },
-  config: { eyebrow: "Client setup", title: "Configuration", sub: "The interpretation rules the agents apply — view & tune live" },
-};
-
-const TAB_HELP: Record<Mode, string> = {
-  ask: "Ask any sales-planning question in plain English",
-  platform: "Technical view: agents, pipeline, Shield & audit",
-  config: "Client configuration — view & tune the rules live",
-};
-
-// Human label for the agent that answered (shown above the inline result).
 const AGENT_LABEL: Record<string, string> = {
   quota_equity: "Quota Equity",
   capacity_headroom: "Capacity Headroom",
@@ -37,53 +31,142 @@ const AGENT_LABEL: Record<string, string> = {
   scenario_orchestrator: "Scenario Orchestrator",
 };
 
-export default function App() {
-  const [health, setHealth] = useState<Health | null>(null);
-  // Default to admin so the demo shows real rep names first; switch down to
-  // analyst / viewer to demonstrate PII masking.
-  const [role, setRole] = useState("admin");
-  const initialTab = (new URLSearchParams(window.location.search).get("tab") as Mode) || "ask";
-  const [mode, setMode] = useState<Mode>(
-    ["ask", "platform", "config"].includes(initialTab) ? initialTab : "ask"
+// The user's message, right-aligned like a chat bubble.
+function QuestionBubble({ text }: { text: string }) {
+  return (
+    <div className="flex justify-end">
+      <span className="max-w-[85%] rounded-2xl rounded-br-sm bg-navy px-3.5 py-2 text-[13px] font-medium text-white">
+        {text}
+      </span>
+    </div>
   );
-  const [run, setRun] = useState<AgentRunResponse | null>(null); // last conversational run (drives the governance trail)
+}
+
+type DashEntry = {
+  fetchedAt: Date;
+  runId: string | null;
+  assumptions: Assumption[];
+  territory?: QuotaEquityReport;
+  capacity?: CapacityReport;
+  exec?: ExecutiveSummaryResponse;
+};
+
+const DASH_MODES: Mode[] = ["territory", "capacity", "executive"];
+
+export default function App() {
+  const [authed, setAuthed] = useState<boolean>(() => sessionStorage.getItem("voiant_authed") === "1");
+  const [health, setHealth] = useState<Health | null>(null);
+  const [role, setRole] = useState("admin");
+
+  const initialTab = (new URLSearchParams(window.location.search).get("tab") as Mode) || "territory";
+  const [mode, setMode] = useState<Mode>(
+    ["ask", "territory", "capacity", "executive", "platform", "config", "audit"].includes(initialTab)
+      ? initialTab
+      : "territory"
+  );
+
+  // Conversational state
   const [chatRun, setChatRun] = useState<AgentRunResponse | null>(null);
+  const [chatHistory, setChatHistory] = useState<AgentRunResponse[]>([]); // conversation thread
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [showHelp, setShowHelp] = useState(false);
   const [pendingQuestion, setPendingQuestion] = useState("");
   const [showInspect, setShowInspect] = useState(false);
   const sessionRef = useRef<string | null>(null);
+  const lastTurnRef = useRef<HTMLDivElement>(null);
+  const pendingRef = useRef<HTMLDivElement>(null);
+  // When a new turn arrives, bring the top of that answer into view (comfortable reading start).
+  useEffect(() => {
+    if (chatHistory.length > 0) {
+      lastTurnRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+  }, [chatHistory.length]);
+  // The moment a question is sent, scroll to it (question bubble + thinking) so it's visible.
+  useEffect(() => {
+    if (loading) pendingRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, [loading]);
+
+  // Dashboard state (fetched from the report endpoints, cached by mode+role)
+  const dashCache = useRef<Record<string, DashEntry>>({});
+  const [dash, setDash] = useState<DashEntry | null>(null);
+  const [dashLoading, setDashLoading] = useState(false);
+
+  const [error, setError] = useState<string | null>(null);
+  const [shieldBusy, setShieldBusy] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(false); // mobile nav drawer (< lg)
 
   const refreshHealth = () => api.health().then(setHealth).catch(() => {});
   useEffect(() => {
     refreshHealth();
   }, []);
 
-  // Called after an upload or config reload — refresh state.
-  const onDataChanged = () => {
-    refreshHealth();
+  const loadDash = async (m: Mode, r: string) => {
+    const key = `${m}:${r}`;
+    const cached = dashCache.current[key];
+    if (cached) {
+      setDash(cached);
+      return;
+    }
+    setDashLoading(true);
+    setError(null);
+    try {
+      let entry: DashEntry;
+      if (m === "territory") {
+        const res = await api.territoryEquity(r);
+        const rep = res.report as QuotaEquityReport;
+        entry = { fetchedAt: new Date(), runId: res.run_id, assumptions: rep.assumptions ?? [], territory: rep };
+      } else if (m === "capacity") {
+        const res = await api.capacityOverview(r);
+        const rep = res.report as CapacityReport;
+        entry = { fetchedAt: new Date(), runId: res.run_id, assumptions: rep.assumptions ?? [], capacity: rep };
+      } else {
+        const res = await api.executiveSummary(r);
+        entry = { fetchedAt: new Date(), runId: res.run_id, assumptions: [], exec: res };
+      }
+      dashCache.current[key] = entry;
+      setDash(entry);
+    } catch (e) {
+      setError(String(e));
+    } finally {
+      setDashLoading(false);
+    }
   };
 
-  // Re-run the current question deterministically (no Claude) to refresh masking/report.
+  // Load / refresh the active dashboard when the mode or role changes.
+  useEffect(() => {
+    if (DASH_MODES.includes(mode)) loadDash(mode, role);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mode, role]);
+
+  const onDataChanged = () => {
+    dashCache.current = {};
+    refreshHealth();
+    if (DASH_MODES.includes(mode)) loadDash(mode, role);
+  };
+
   const remaskCurrent = async () => {
     if (!chatRun) return;
     try {
       const res = await api.chat(chatRun.question, role, sessionRef.current, false);
       const updated = { ...chatRun, report: res.report, trace: res.trace };
       setChatRun(updated);
-      setRun(updated);
+      // reflect the re-masked answer in the latest thread turn
+      setChatHistory((h) => (h.length ? [...h.slice(0, -1), updated] : h));
     } catch {
-      /* keep the current view */
+      /* keep view */
     }
   };
+  useEffect(() => {
+    remaskCurrent();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [role]);
 
-  const [shieldBusy, setShieldBusy] = useState(false);
   const onToggleShield = async (enabled: boolean) => {
     setShieldBusy(true);
     try {
       await api.toggleShield(enabled);
       await refreshHealth();
+      dashCache.current = {};
+      if (DASH_MODES.includes(mode)) await loadDash(mode, role);
       await remaskCurrent();
     } catch (e) {
       setError(String(e));
@@ -101,7 +184,7 @@ export default function App() {
       const res = await api.chat(question, role, sessionRef.current);
       sessionRef.current = res.session_id;
       setChatRun(res);
-      setRun(res);
+      setChatHistory((h) => [...h, res]); // keep the full conversation thread
     } catch (e) {
       setError(String(e));
     } finally {
@@ -109,236 +192,181 @@ export default function App() {
     }
   };
 
-  // When the role changes, re-mask the existing answer instantly (deterministic — no Claude)
-  // so names/emails update immediately, keeping the written narrative.
-  useEffect(() => {
-    remaskCurrent();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [role]);
+  const logout = () => {
+    sessionStorage.removeItem("voiant_authed");
+    setAuthed(false);
+  };
+
+  // Login gate — all hooks above run unconditionally; this early return is after them.
+  if (!authed) {
+    return (
+      <LoginPage
+        onSuccess={() => {
+          sessionStorage.setItem("voiant_authed", "1");
+          setAuthed(true);
+        }}
+      />
+    );
+  }
+
+  const isDash = DASH_MODES.includes(mode);
+  const execCount = dashCache.current[`executive:${role}`]?.exec?.top_findings.length;
 
   return (
-    <div className="flex min-h-screen">
-      <Sidebar mode={mode} onMode={setMode} health={health} />
-      {showHelp && <HelpGlossary onClose={() => setShowHelp(false)} />}
+    <div className="flex min-h-screen flex-col bg-[#f7f8fa]">
+      <AppHeader
+        health={health}
+        role={role}
+        onRole={setRole}
+        onToggleShield={onToggleShield}
+        shieldBusy={shieldBusy}
+        onMenu={() => setSidebarOpen(true)}
+        onLogout={logout}
+      />
 
-      <div className="flex min-w-0 flex-1 flex-col">
-        <Topbar
-          eyebrow={TITLES[mode].eyebrow}
-          title={TITLES[mode].title}
-          sub={TITLES[mode].sub}
-          health={health}
-          role={role}
-          onRole={setRole}
-          onHelp={() => setShowHelp(true)}
-          onToggleShield={onToggleShield}
-          shieldBusy={shieldBusy}
+      <div className="flex flex-1">
+        <Sidebar
+          mode={mode}
+          onMode={setMode}
+          badges={execCount != null ? { executive: execCount } : undefined}
+          open={sidebarOpen}
+          onClose={() => setSidebarOpen(false)}
         />
 
-        {/* Mobile nav — sidebar is hidden below lg */}
-        <nav className="flex items-stretch gap-1 border-b border-slate-200 bg-white px-4 lg:hidden">
-          <NavTab active={mode === "ask"} onClick={() => setMode("ask")} title={TAB_HELP.ask}>
-            Conversational
-          </NavTab>
-          <NavTab active={mode === "platform"} onClick={() => setMode("platform")} title={TAB_HELP.platform}>
-            Behind the Scenes
-          </NavTab>
-          <NavTab active={mode === "config"} onClick={() => setMode("config")} title={TAB_HELP.config}>
-            Configuration
-          </NavTab>
-        </nav>
-
-        <main
-          className={`grid w-full max-w-[1440px] gap-5 px-6 py-6 ${
-            mode === "ask" ? "xl:grid-cols-[minmax(0,1fr)_340px]" : ""
-          }`}
-        >
-          <div className="min-w-0 space-y-5">
-            {mode === "ask" && (
-              <>
-                <RoleBanner role={role} />
-                <ChatPanel onAsk={ask} loading={loading} run={chatRun} />
-              </>
-            )}
+        <main className="min-w-0 flex-1">
+          <div className="mx-auto max-w-[1440px] px-6 py-6">
             {error && (
-              <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+              <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
                 {error} — is the backend running?
               </div>
             )}
 
-            {mode === "config" ? (
+            {isDash ? (
+              <div className="flex flex-col gap-6 xl:flex-row">
+                <div className="min-w-0 flex-1">
+                  {dashLoading || !dash ? (
+                    <DashSkeleton />
+                  ) : mode === "territory" && dash.territory ? (
+                    <TerritoryEquityPage report={dash.territory} />
+                  ) : mode === "capacity" && dash.capacity ? (
+                    <CapacityPage report={dash.capacity} />
+                  ) : mode === "executive" && dash.exec ? (
+                    <ExecutivePage data={dash.exec} />
+                  ) : (
+                    <DashSkeleton />
+                  )}
+                </div>
+                <RightRail
+                  assumptions={dash?.assumptions ?? []}
+                  runId={dash?.runId ?? null}
+                  onOpenAudit={() => setMode("audit")}
+                />
+              </div>
+            ) : mode === "config" ? (
               <ConfigPage role={role} onChanged={onDataChanged} />
+            ) : mode === "audit" ? (
+              <AuditLogPage />
             ) : mode === "platform" ? (
               <BehindTheScenes role={role} />
-            ) : loading ? (
-              <ThinkingIndicator question={pendingQuestion} />
-            ) : run ? (
-              <>
-                <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm shadow-[0_1px_2px_rgba(16,24,40,0.04)]">
-                  <span className="text-navy">
-                    <span className="mr-1.5 inline-block h-1.5 w-1.5 rounded-full bg-brand align-middle" />
-                    Answered by the <b>{AGENT_LABEL[run.report_type] ?? "agent"}</b>
-                    {run.trace?.routing?.confidence != null && (
-                      <span className="ml-1 text-slatebody">
-                        · {Math.round(Number(run.trace.routing.confidence) * 100)}% confident
-                        {run.trace.routing.reason && (
-                          <span className="italic"> — “{run.trace.routing.reason}”</span>
-                        )}
-                      </span>
-                    )}
-                  </span>
-                  <button className="btn-ghost py-1.5 text-xs" onClick={() => setShowInspect((s) => !s)}>
-                    {showInspect ? "Hide" : "Technical"} details
-                  </button>
-                </div>
-                {run.memory && run.memory.length > 1 && <MemoryStrip memory={run.memory} />}
-                {showInspect && <InspectPanel run={run} />}
-                <ResultRenderer run={run} />
-                <AssumptionsFooter run={run} />
-              </>
             ) : (
-              <div className="card grid place-items-center p-14 text-center">
-                <div className="max-w-sm">
-                  <div className="mx-auto mb-3 grid h-10 w-10 place-items-center rounded-full bg-brand/10 text-brand-dark">
-                    <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z" />
-                    </svg>
-                  </div>
-                  <p className="text-sm font-medium text-navy">Ask a question to begin</p>
-                  <p className="mt-1 text-[13px] text-slatebody">
-                    The matching dashboard opens inline with your answer.
-                  </p>
+              // Conversational — a single centered column that uses the full width
+              <div className="mx-auto w-full max-w-4xl">
+                <div className="min-w-0 space-y-5">
+                  {chatHistory.length === 0 ? (
+                    <>
+                      <ChatPanel onAsk={ask} loading={loading} run={chatRun} />
+                      {loading ? (
+                        <div className="space-y-3">
+                          {pendingQuestion && <QuestionBubble text={pendingQuestion} />}
+                          <ThinkingIndicator question={pendingQuestion} />
+                        </div>
+                      ) : (
+                        <div className="card grid place-items-center p-14 text-center">
+                          <div className="max-w-sm">
+                            <p className="text-sm font-medium text-navy">Ask a question to begin</p>
+                            <p className="mt-1 text-[13px] text-slatebody">
+                              The matching analysis opens with your answer. Follow-up questions keep the
+                              context — ask “why?” or “what about the West?” and it stays on topic.
+                            </p>
+                          </div>
+                        </div>
+                      )}
+                    </>
+                  ) : (
+                    <>
+                    <div className="space-y-6">
+                      {chatHistory.map((turn, i) => {
+                        const isLast = i === chatHistory.length - 1;
+                        return (
+                          <div
+                            key={turn.run_id + i}
+                            ref={isLast ? lastTurnRef : undefined}
+                            className="scroll-mt-20 space-y-3"
+                          >
+                            <QuestionBubble text={turn.question} />
+                            <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm shadow-[0_1px_2px_rgba(16,24,40,0.04)]">
+                              <span className="text-navy">
+                                <span className="mr-1.5 inline-block h-1.5 w-1.5 rounded-full bg-brand align-middle" />
+                                Answered by the <b>{AGENT_LABEL[turn.report_type] ?? "agent"}</b>
+                                {turn.trace?.routing?.confidence != null && (
+                                  <span className="ml-1 text-slatebody">
+                                    · {Math.round(Number(turn.trace.routing.confidence) * 100)}% confident
+                                  </span>
+                                )}
+                                {i > 0 && turn.routed_from && (
+                                  <span className="ml-1 text-slatebody">· follow-up</span>
+                                )}
+                              </span>
+                              {isLast && (
+                                <button className="btn-ghost py-1.5 text-xs" onClick={() => setShowInspect((s) => !s)}>
+                                  {showInspect ? "Hide" : "Technical"} details
+                                </button>
+                              )}
+                            </div>
+                            {isLast && showInspect && <InspectPanel run={turn} />}
+                            <ResultRenderer run={turn} />
+                            {isLast && <AssumptionsFooter run={turn} />}
+                          </div>
+                        );
+                      })}
+                      {loading && (
+                        <div ref={pendingRef} className="scroll-mt-20 space-y-3">
+                          {pendingQuestion && <QuestionBubble text={pendingQuestion} />}
+                          <ThinkingIndicator question={pendingQuestion} />
+                        </div>
+                      )}
+                    </div>
+                    {/* Composer docks to the bottom of the viewport — always reachable while
+                        scrolling the thread, like a real chat. The thread fades out behind it. */}
+                    <div className="sticky bottom-0 z-20 -mx-1 bg-gradient-to-t from-[#f7f8fa] via-[#f7f8fa]/95 to-transparent px-1 pb-2 pt-4">
+                      <ChatPanel onAsk={ask} loading={loading} run={chatRun} docked />
+                    </div>
+                    </>
+                  )}
                 </div>
               </div>
             )}
           </div>
-
-          {mode === "ask" && (
-            <aside className="space-y-5">
-              <ConfigLedgerPanel onReload={onDataChanged} role={role} />
-              <UploadControl onIngested={onDataChanged} role={role} />
-              <GovernanceTrail run={run} />
-            </aside>
-          )}
         </main>
-
-        <footer className="mt-auto border-t border-slate-200 px-6 py-4 text-center text-xs text-slate-400">
-          Voiant Sales Planning Intelligence · Governance-first agentic AI · Synthetic data only
-        </footer>
       </div>
+
+      <footer className="border-t border-slate-200 bg-white px-6 py-4 text-center text-xs text-slate-400">
+        Voiant Sales Planning Intelligence · Governance-first agentic AI · Synthetic data only
+      </footer>
     </div>
   );
 }
 
-function MemoryStrip({ memory }: { memory: { question: string; agent: string }[] }) {
-  const AGENT_LABEL: Record<string, string> = {
-    quota_equity: "Quota Equity",
-    capacity_headroom: "Capacity Headroom",
-    scenario_orchestrator: "Orchestrator",
-  };
+function DashSkeleton() {
   return (
-    <div className="rounded-xl border border-slate-200 bg-white px-4 py-3">
-      <div className="mb-2 flex items-center gap-2">
-        <span className="font-display text-[11px] font-semibold uppercase tracking-wide text-slate-500">
-          Conversation memory
-        </span>
-        <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slatebody">
-          {memory.length} turn{memory.length === 1 ? "" : "s"}
-        </span>
-        <span className="ml-auto text-[10px] text-slate-400">this session only · not stored in DB</span>
+    <div className="space-y-5">
+      <div className="h-8 w-64 animate-pulse rounded bg-slate-200" />
+      <div className="flex gap-3">
+        {[0, 1, 2, 3].map((i) => (
+          <div key={i} className="h-24 flex-1 animate-pulse rounded-xl bg-slate-200/70" />
+        ))}
       </div>
-      <ol className="space-y-1">
-        {memory.map((m, i) => {
-          const current = i === memory.length - 1;
-          return (
-            <li key={i} className="flex items-center gap-2 text-xs">
-              <span
-                className={`grid h-4 w-4 shrink-0 place-items-center rounded-full text-[9px] font-bold ${
-                  current ? "bg-brand text-white" : "bg-slate-200 text-navy"
-                }`}
-              >
-                {i + 1}
-              </span>
-              <span className={`truncate ${current ? "font-medium text-navy" : "text-slatebody"}`}>
-                {m.question}
-              </span>
-              <span className="ml-auto shrink-0 rounded bg-white px-1.5 py-0.5 font-mono text-[10px] text-brand-dark ring-1 ring-brand/20">
-                {AGENT_LABEL[m.agent] ?? m.agent}
-              </span>
-            </li>
-          );
-        })}
-      </ol>
-    </div>
-  );
-}
-
-function NavTab({
-  active,
-  onClick,
-  title,
-  children,
-}: {
-  active: boolean;
-  onClick: () => void;
-  title?: string;
-  children: ReactNode;
-}) {
-  return (
-    <button
-      onClick={onClick}
-      title={title}
-      className={`-mb-px flex items-center border-b-2 px-4 py-3 font-display text-xs font-bold uppercase tracking-[0.1em] transition ${
-        active ? "border-brand text-navy" : "border-transparent text-slatebody hover:text-navy"
-      }`}
-    >
-      {children}
-    </button>
-  );
-}
-
-function UploadControl({ onIngested, role }: { onIngested: () => void; role: string }) {
-  const ref = useRef<HTMLInputElement>(null);
-  const [msg, setMsg] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
-  const readOnly = role === "viewer";
-
-  const onFile = async (file: File) => {
-    setBusy(true);
-    setMsg(null);
-    try {
-      const res = await api.uploadCsv(file, true);
-      setMsg(`Ingested ${res.rows} rows via Shield (${res.shield_status}); ${res.entities_detected} entities detected.`);
-      onIngested();
-    } catch (e) {
-      setMsg(String(e));
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  return (
-    <div className="card p-4">
-      <div className="panel-title mb-2">Secure Ingestion (CSV / Excel)</div>
-      <input
-        ref={ref}
-        type="file"
-        accept=".csv,.xlsx,.xls"
-        className="hidden"
-        onChange={(e) => e.target.files?.[0] && onFile(e.target.files[0])}
-      />
-      <button
-        className="btn-ghost w-full justify-center"
-        onClick={() => ref.current?.click()}
-        disabled={busy || readOnly}
-      >
-        {readOnly ? "🔒 Upload disabled for Viewer" : busy ? "Masking through Shield…" : "Upload & mask through Shield"}
-      </button>
-      {msg && <div className="mt-2 text-[11px] text-slatebody">{msg}</div>}
-      <div className="mt-2 text-[11px] text-slate-400">
-        {readOnly
-          ? "Viewer is read-only. Switch to Admin or Analyst to ingest data."
-          : "PII fields are detected by Bright Shield and replaced with stable tokens before analysis."}
-      </div>
+      <div className="h-64 animate-pulse rounded-xl bg-slate-200/60" />
     </div>
   );
 }

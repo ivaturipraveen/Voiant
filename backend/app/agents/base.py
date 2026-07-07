@@ -32,6 +32,7 @@ class AgentContext:
     question: str
     allow_llm: bool = True  # False ⇒ skip Claude (dashboards: deterministic-only, no cost)
     data_source: str = "synthetic"  # database | csv | synthetic — real provenance for assumptions/trace
+    conversation: list[dict] | None = None  # prior turns this session (for follow-up continuity)
 
 
 @dataclass

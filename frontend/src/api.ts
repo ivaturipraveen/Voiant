@@ -179,6 +179,18 @@ export interface AuditResponse {
   llm_calls: Array<Record<string, unknown>>;
 }
 
+export interface AuditEvent {
+  run_id: string;
+  agent: string;
+  agent_version: string;
+  determinism_hash: string;
+  config_version: number;
+  field_reads: number;
+  mock_data: boolean;
+  detail?: Record<string, unknown> | null;
+  ts: string;
+}
+
 export interface ClientConfig {
   client_id: string;
   client_name: string;
@@ -238,6 +250,9 @@ async function post<T>(path: string, body: unknown): Promise<T> {
 
 export const api = {
   health: () => get<Health>("/health"),
+  login: (username: string, password: string) =>
+    post<{ ok: boolean; user: string }>("/auth/login", { username, password }),
+  recentAudit: (limit = 100) => get<{ events: AuditEvent[] }>(`/audit/recent?limit=${limit}`),
   toggleShield: (enabled: boolean) =>
     post<{ enabled: boolean; status: string; reps: number }>("/shield/toggle", { enabled }),
   config: () => get<ClientConfig>("/config"),

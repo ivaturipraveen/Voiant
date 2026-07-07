@@ -10,6 +10,12 @@ from ...runtime import AppRuntime
 router = APIRouter(tags=["audit"])
 
 
+@router.get("/audit/recent")
+def recent_audit(limit: int = 100, rt: AppRuntime = Depends(get_runtime)) -> dict:
+    """The browsable audit log — recent analysis runs across all sessions (newest first)."""
+    return {"events": rt.audit.recent(limit)}
+
+
 @router.get("/audit/{run_id}")
 def get_audit(run_id: str, rt: AppRuntime = Depends(get_runtime)) -> dict:
     return rt.audit.for_run(run_id)

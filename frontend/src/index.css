@@ -31,7 +31,7 @@
   /* Consistent, tasteful keyboard focus everywhere. */
   :focus-visible {
     outline: none;
-    box-shadow: 0 0 0 2px #fff, 0 0 0 4px rgba(47, 168, 92, 0.5);
+    box-shadow: 0 0 0 2px #fff, 0 0 0 4px rgba(52, 183, 173, 0.5);
     border-radius: 6px;
   }
 }
@@ -44,9 +44,9 @@
   .card-hover {
     @apply hover:border-slate-300 hover:shadow-[0_6px_20px_-8px_rgba(16,24,40,0.14)];
   }
-  /* Clean section header: small, sentence-case, no accent bar. */
+  /* Clean section header: small, sentence-case, no accent bar. One size everywhere. */
   .panel-title {
-    @apply font-display text-[13px] font-semibold tracking-tight text-navy;
+    @apply font-display text-[14px] font-semibold tracking-tight text-navy;
   }
   .eyebrow {
     @apply font-display text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-400;
@@ -55,7 +55,11 @@
     @apply inline-flex items-center justify-center gap-2 rounded-lg px-3.5 py-2 text-sm font-semibold transition-colors duration-150;
   }
   .btn-primary {
-    @apply btn bg-brand text-white shadow-[0_1px_2px_rgba(35,125,68,0.25)] hover:bg-brand-dark disabled:opacity-50;
+    @apply btn bg-brand text-white shadow-[0_1px_2px_rgba(38,142,134,0.25)] hover:bg-brand-dark disabled:opacity-50;
+  }
+  /* Dark primary action (matches the mockup's near-black navy buttons). */
+  .btn-dark {
+    @apply btn bg-navy-deep text-white shadow-[0_1px_2px_rgba(15,27,44,0.3)] hover:bg-navy disabled:opacity-50;
   }
   .btn-ghost {
     @apply btn border border-slate-200 bg-white text-navy hover:border-slate-300 hover:text-brand-dark;

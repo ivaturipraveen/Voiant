@@ -21,6 +21,17 @@ class Settings(BaseSettings):
     voiant_model_complex: str = "claude-opus-4-8"
     voiant_model_classifier: str = "claude-haiku-4-5-20251001"  # small/fast model for intent routing
 
+    # Per-model pricing ($ per 1M tokens) — configurable reference data (external Anthropic list
+    # prices), used only to estimate request cost from real token usage. Update if pricing changes.
+    voiant_model_pricing: dict[str, dict[str, float]] = {
+        "claude-opus-4-8": {"input": 5.0, "output": 25.0},
+        "claude-opus-4-7": {"input": 5.0, "output": 25.0},
+        "claude-sonnet-5": {"input": 3.0, "output": 15.0},
+        "claude-sonnet-4-6": {"input": 3.0, "output": 15.0},
+        "claude-haiku-4-5": {"input": 1.0, "output": 5.0},
+        "claude-haiku-4-5-20251001": {"input": 1.0, "output": 5.0},
+    }
+
     # Bright Masker (PII detection + masking)
     bright_shield_base_url: str = "https://36owxpb34jb9et-8000.proxy.runpod.net"
     bright_shield_enabled: bool = True
@@ -50,6 +61,11 @@ class Settings(BaseSettings):
     # Whether to show the "MOCK DATA" label. Keep True while the DB holds seeded
     # synthetic data; set False only when real production data is loaded.
     voiant_mock_data: bool = True
+
+    # Demo login credentials — supplied ONLY via env (VOIANT_AUTH_USER / VOIANT_AUTH_PASSWORD).
+    # No hardcoded defaults: if unset, login is disabled (fail-closed).
+    voiant_auth_user: str = ""
+    voiant_auth_password: str = ""
 
     @property
     def config_path(self) -> Path:

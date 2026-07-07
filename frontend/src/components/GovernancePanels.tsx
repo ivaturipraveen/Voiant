@@ -1,3 +1,4 @@
+import { Icon } from "./icons";
 import { useEffect, useState } from "react";
 import {
   api,
@@ -21,17 +22,19 @@ export function ConfigLedgerPanel({ onReload, role }: { onReload: () => void; ro
       <div className="mb-2 flex items-center justify-between">
         <div className="panel-title">Client Config — Interpretation Ledger</div>
         {role === "viewer" ? (
-          <span className="text-[11px] text-slate-400" title="Read-only role">🔒 Read-only</span>
+          <span className="inline-flex items-center gap-1 text-[11px] text-slate-400" title="Read-only role">
+            <Icon name="lock" className="h-3.5 w-3.5" /> Read-only
+          </span>
         ) : (
           <button
-            className="text-[11px] text-brand-dark hover:underline"
+            className="inline-flex items-center gap-1 text-[11px] text-brand-dark hover:underline"
             onClick={async () => {
               await api.reloadConfig();
               await load();
               onReload();
             }}
           >
-            Reload ↻
+            <Icon name="refresh" className="h-3.5 w-3.5" /> Reload
           </button>
         )}
       </div>

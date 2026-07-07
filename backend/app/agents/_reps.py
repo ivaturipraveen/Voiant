@@ -89,6 +89,9 @@ def build_trace(
         "model": {
             "model": model_meta.get("model") or "deterministic-fallback",
             "fell_back": model_meta.get("fell_back", True),
+            "input_tokens": model_meta.get("input_tokens", 0),
+            "output_tokens": model_meta.get("output_tokens", 0),
+            "cost_usd": model_meta.get("cost_usd", 0),
             "system_prompt": (model_meta.get("system_prompt") or "")[:1500],
             "input_sent": model_meta.get("input_sent"),
             "output_received": narrative,

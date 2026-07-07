@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Icon } from "./icons";
 
 // Detailed view of the real pipeline while an agent runs. Steps 1–4 are near-instant;
 // step 5 (Claude) is the bottleneck, so we advance quickly then dwell on the last one.
@@ -11,7 +12,7 @@ function steps(question: string): Step[] {
       label: "Routing your question",
       detail: `The Scenario Orchestrator reads the intent of ${q} and picks the specialist agent.`,
       points: [
-        "Clear keyword → straight to the agent; otherwise Claude classifies the intent",
+        "A small model classifies the intent by meaning (no keyword matching)",
         "Detects what-if scenarios (cut / add reps) and big-picture (runs both agents)",
         "Keeps conversation context so follow-ups stay on topic",
       ],
@@ -92,7 +93,7 @@ export default function ThinkingIndicator({ question = "" }: { question?: string
                     : "border border-slate-300 text-slate-300"
                 }`}
               >
-                {state === "done" ? "✓" : i + 1}
+                {state === "done" ? <Icon name="check" className="h-3.5 w-3.5" /> : i + 1}
               </span>
               <div className="min-w-0 flex-1">
                 <div

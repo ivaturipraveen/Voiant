@@ -9,7 +9,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from .api.errors import unhandled_exception_handler
-from .api.routers import agents, audit, config, dashboards, health, ingest, shield, system
+from .api.routers import agents, audit, auth, config, dashboards, health, ingest, shield, system
 from .runtime import AppRuntime
 from .settings import get_settings
 
@@ -49,8 +49,8 @@ def create_app() -> FastAPI:
     )
     app.add_exception_handler(Exception, unhandled_exception_handler)
 
-    for r in (health.router, config.router, ingest.router, agents.router, dashboards.router,
-              audit.router, shield.router, system.router):
+    for r in (health.router, auth.router, config.router, ingest.router, agents.router,
+              dashboards.router, audit.router, shield.router, system.router):
         app.include_router(r)
     return app
 

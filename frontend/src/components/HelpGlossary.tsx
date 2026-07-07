@@ -8,11 +8,11 @@ const GROUPS: { title: string; terms: Term[] }[] = [
     terms: [
       { term: "Rep", def: "A salesperson (sales representative)." },
       { term: "Quota", def: "A rep's yearly sales target — how much they're expected to sell." },
-      { term: "Deployed quota", def: "All rep quotas added together (here: $166M)." },
-      { term: "Top-down target", def: "The company's overall goal (here: $130M). Different from deployed quota." },
-      { term: "Over-assignment", def: "Handing out more quota than the target — here $36M / 27.7% more." },
+      { term: "Deployed quota", def: "All rep quotas added together." },
+      { term: "Top-down target", def: "The company's overall goal. Different from deployed quota." },
+      { term: "Over-assignment", def: "Handing out more quota than the top-down target." },
       { term: "Pipeline / opportunity", def: "The value of the open deals a rep is working on." },
-      { term: "Segment", def: "A customer-size group: Enterprise, Commercial, Mid-Market, SMB, Strategic." },
+      { term: "Segment", def: "A customer group (e.g. Enterprise, Mid-Market, SMB) — the actual segments come from your data." },
       { term: "OTE / OTC", def: "On-Target Earnings / Commission — what a rep is paid if they hit quota." },
       { term: "Attainment", def: "How much of their quota a rep has actually achieved." },
     ],
@@ -29,7 +29,7 @@ const GROUPS: { title: string; terms: Term[] }[] = [
   {
     title: "Capacity (Capacity Headroom agent)",
     terms: [
-      { term: "Headroom / capacity", def: "How much MORE quota the team can take before people are overworked — spare room. $26.6M here." },
+      { term: "Headroom / capacity", def: "How much MORE quota the team can take before people are overworked — spare room." },
       { term: "Overloaded / Balanced / Underloaded", def: "How busy a rep is vs the norm. Overloaded = too much; underloaded = has room." },
       { term: "Redistribution", def: "Moving quota from overloaded reps to reps who have room." },
       { term: "What-if", def: "Testing a hypothetical on the real data — e.g. 'cut 3 reps' or 'add 5 heads'." },
@@ -62,8 +62,10 @@ export default function HelpGlossary({ onClose }: { onClose: () => void }) {
             <div className="font-display text-sm font-bold uppercase tracking-wide">Glossary</div>
             <div className="text-[11px] text-slatebody">Plain-English meaning of every term</div>
           </div>
-          <button onClick={onClose} className="rounded-md px-2 py-1 text-sm text-slatebody hover:bg-slate-100">
-            ✕
+          <button onClick={onClose} aria-label="Close" className="grid h-8 w-8 place-items-center rounded-md text-slatebody hover:bg-slate-100">
+            <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
+              <path d="M6 6l12 12M18 6L6 18" />
+            </svg>
           </button>
         </div>
         <div className="space-y-5 p-5">

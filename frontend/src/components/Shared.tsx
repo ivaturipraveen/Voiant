@@ -92,30 +92,79 @@ export function Metric({
   label,
   value,
   tone = "neutral",
+  flagged = false,
+  pill,
+  sub,
 }: {
   label: string;
   value: string;
-  tone?: "neutral" | "accent" | "danger" | "good";
+  tone?: "neutral" | "accent" | "danger" | "good" | "warn";
+  flagged?: boolean; // cream background for a metric that needs attention
+  pill?: string; // small badge next to the value (e.g. "+28% over")
+  sub?: string; // caption under the number
 }) {
-  const T = {
-    danger: { text: "text-band-overloaded", bar: "bg-band-overloaded" },
-    good: { text: "text-band-equitable", bar: "bg-band-equitable" },
-    accent: { text: "text-brand-dark", bar: "bg-gradient-to-r from-brand-light to-brand-dark" },
-    neutral: { text: "text-navy", bar: "bg-navy/20" },
+  const text = {
+    danger: "text-band-overloaded",
+    good: "text-band-equitable",
+    accent: "text-brand-dark",
+    warn: "text-flag-text",
+    neutral: "text-navy",
   }[tone];
+  const surface = flagged ? "border-flag-border bg-flag-bg" : "border-slate-200 bg-white";
   return (
-    <div className="group relative flex-1 basis-[160px] overflow-hidden rounded-xl border border-navy/[0.07] bg-white px-4 py-3 shadow-card transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_2px_6px_rgba(33,30,86,0.05),0_16px_40px_-12px_rgba(33,30,86,0.18)]">
-      <span className={`absolute inset-x-0 top-0 h-[3px] ${T.bar}`} />
-      <div className="text-[10.5px] font-semibold uppercase tracking-[0.09em] text-slatebody">{label}</div>
-      <div className={`mt-1.5 font-display text-[26px] font-extrabold leading-none tracking-tight tabular-nums ${T.text}`}>
+    <div
+      className={`flex-1 basis-[180px] rounded-xl border ${surface} px-4 py-3.5 shadow-[0_1px_2px_rgba(16,24,40,0.04)] transition-all duration-150 hover:border-slate-300 hover:shadow-[0_6px_20px_-8px_rgba(16,24,40,0.12)]`}
+    >
+      <div className="flex items-center gap-2">
+        <span className="text-[10.5px] font-semibold uppercase tracking-[0.08em] text-slatebody">{label}</span>
+        {pill && (
+          <span className="rounded bg-flag-text/15 px-1.5 py-0.5 text-[10px] font-bold text-flag-text">{pill}</span>
+        )}
+      </div>
+      <div className={`mt-1.5 font-display text-[27px] font-extrabold leading-none tracking-tight tabular-nums ${text}`}>
         {value}
       </div>
+      {sub && <div className="mt-1.5 text-[11px] leading-snug text-slatebody">{sub}</div>}
     </div>
   );
 }
 
 export function StatStrip({ children }: { children: ReactNode }) {
   return <div className="flex flex-wrap gap-3">{children}</div>;
+}
+
+// Dashboard page header: big title + subtitle on the left, action buttons on the right.
+export function PageHeader({ title, sub, actions }: { title: string; sub: string; actions?: ReactNode }) {
+  return (
+    <div className="mb-5 flex flex-wrap items-end justify-between gap-3">
+      <div>
+        <h1 className="font-display text-[26px] font-extrabold leading-tight tracking-tight text-navy">{title}</h1>
+        <p className="mt-0.5 text-[13px] text-slatebody">{sub}</p>
+      </div>
+      {actions && <div className="flex flex-wrap items-center gap-2">{actions}</div>}
+    </div>
+  );
+}
+
+// Real Export action: downloads the current report as a JSON file (no dead buttons).
+export function ExportButton({ data, filename }: { data: unknown; filename: string }) {
+  const download = () => {
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${filename}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+  return (
+    <button className="btn-ghost py-1.5 text-[13px]" onClick={download}>
+      <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M12 3v12M8 11l4 4 4-4M5 21h14" />
+      </svg>
+      Export
+    </button>
+  );
 }
 
 export function NarrativeCard({

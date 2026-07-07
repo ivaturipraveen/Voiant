@@ -42,6 +42,14 @@ class AuditStore:
                 )
             )
 
+    def recent(self, limit: int = 100) -> list[dict]:
+        """Recent analysis runs across all sessions — the browsable audit log."""
+        with self.engine.connect() as c:
+            rows = c.execute(
+                select(audit_inference).order_by(audit_inference.c.id.desc()).limit(limit)
+            ).mappings().all()
+        return [dict(r) for r in rows]
+
     def for_run(self, run_id: str) -> dict:
         with self.engine.connect() as c:
             inf = c.execute(

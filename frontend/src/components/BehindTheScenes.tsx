@@ -8,17 +8,18 @@ import {
   type SystemInfo,
 } from "../api";
 import DataTable from "./DataTable";
+import { Icon, type IconName } from "./icons";
 
 type StepKind = "ai" | "engine" | "io";
-const STEP_META: Record<string, { icon: string; kind: StepKind }> = {
-  Question: { icon: "💬", kind: "io" },
-  Classify: { icon: "🧭", kind: "ai" },
-  "Parse input": { icon: "🔎", kind: "engine" },
-  "Shielded read": { icon: "🛡️", kind: "io" },
-  Compute: { icon: "🧮", kind: "engine" },
-  "Assemble payload": { icon: "📦", kind: "engine" },
-  "Model explains": { icon: "🤖", kind: "ai" },
-  "Audit & respond": { icon: "✅", kind: "io" },
+const STEP_META: Record<string, { icon: IconName; kind: StepKind }> = {
+  Question: { icon: "chat", kind: "io" },
+  Classify: { icon: "route", kind: "ai" },
+  "Parse input": { icon: "search", kind: "engine" },
+  "Shielded read": { icon: "shield", kind: "io" },
+  Compute: { icon: "compute", kind: "engine" },
+  "Assemble payload": { icon: "box", kind: "engine" },
+  "Model explains": { icon: "cpu", kind: "ai" },
+  "Audit & respond": { icon: "check", kind: "io" },
 };
 
 export default function BehindTheScenes({ role }: { role: string }) {
@@ -57,8 +58,9 @@ export default function BehindTheScenes({ role }: { role: string }) {
       <div className="card p-4">
         <div className="mb-1 flex items-center justify-between gap-3">
           <div className="panel-title">How every question flows through the platform</div>
-          <button className="btn-primary shrink-0" onClick={runTrace} disabled={tracing}>
-            {tracing ? "Running…" : "▶ Run a live trace"}
+          <button className="btn-primary shrink-0 inline-flex items-center gap-1.5" onClick={runTrace} disabled={tracing}>
+            {!tracing && <Icon name="play" className="h-3.5 w-3.5" />}
+            {tracing ? "Running…" : "Run a live trace"}
           </button>
         </div>
         <p className="mb-3 max-w-3xl text-xs leading-snug text-slatebody">
@@ -77,17 +79,18 @@ export default function BehindTheScenes({ role }: { role: string }) {
 
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
           {sys.pipeline.map((s, i) => {
-            const meta = STEP_META[s.step] ?? { icon: "•", kind: "io" as StepKind };
+            const meta = STEP_META[s.step] ?? { icon: "check" as IconName, kind: "io" as StepKind };
             const border =
               meta.kind === "ai" ? "border-brand/40 bg-brand/[0.06]"
               : meta.kind === "engine" ? "border-navy/25 bg-navy/[0.03]"
               : "border-slate-200 bg-slate-50/60";
             const dot =
               meta.kind === "ai" ? "bg-brand" : meta.kind === "engine" ? "bg-navy" : "bg-slate-400";
+            const ic = meta.kind === "ai" ? "text-brand-dark" : meta.kind === "engine" ? "text-navy" : "text-slatebody";
             return (
               <div key={s.step} className={`relative rounded-lg border p-2.5 ${border}`}>
                 <div className="flex items-center gap-1.5">
-                  <span className="text-sm">{meta.icon}</span>
+                  <Icon name={meta.icon} className={`h-4 w-4 ${ic}`} />
                   <span className="font-display text-[11px] font-bold uppercase tracking-wide text-navy">
                     {s.step}
                   </span>

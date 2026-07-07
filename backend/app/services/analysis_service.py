@@ -14,7 +14,8 @@ from ..schemas.api import AgentRunResponse
 
 
 def _make_ctx(
-    rt: AppRuntime, run_id: str, principal: Principal, question: str, allow_llm: bool = True
+    rt: AppRuntime, run_id: str, principal: Principal, question: str, allow_llm: bool = True,
+    conversation: list[dict] | None = None,
 ) -> AgentContext:
     return AgentContext(
         run_id=run_id,
@@ -29,6 +30,7 @@ def _make_ctx(
         question=question,
         allow_llm=allow_llm,
         data_source=rt.snapshot.source,
+        conversation=conversation,
     )
 
 
@@ -57,7 +59,7 @@ def run_agent(
 
     # Single agent
     run_id = rt.new_run_id()
-    ctx = _make_ctx(rt, run_id, principal, question, allow_llm)
+    ctx = _make_ctx(rt, run_id, principal, question, allow_llm, rt.session_memory(sid))
     result, agent_name = orchestrator.run_single(ctx, plan.agents[0])
     rt.record_turn(sid, question, agent_name, run_id)
 
@@ -159,7 +161,7 @@ def _run_synthesis(
     hashes: list[str] = []
     mock = True
     for agent_name in plan.agents:
-        ctx = _make_ctx(rt, run_id, principal, question, allow_llm)
+        ctx = _make_ctx(rt, run_id, principal, question, allow_llm, rt.session_memory(sid))
         result, name = orchestrator.run_single(ctx, agent_name)
         reports[name] = result.report.model_dump(mode="json")
         narratives[name] = result.narrative
