@@ -42,8 +42,9 @@ def create_app() -> FastAPI:
             "http://localhost:5173",
             "http://localhost:5174",
         ],
-        # Also allow any Render-hosted frontend (survives URL changes / redeploys).
-        allow_origin_regex=r"https://.*\.onrender\.com",
+        # Allow any Render-hosted frontend and the brightcone.ai custom domain
+        # (incl. voiant.brightcone.ai) — survives URL changes / redeploys.
+        allow_origin_regex=r"https://(.*\.onrender\.com|(.*\.)?brightcone\.ai)",
         allow_methods=["*"],
         allow_headers=["*"],
     )
