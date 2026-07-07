@@ -35,14 +35,20 @@ def create_app() -> FastAPI:
         version="0.1.0",
         lifespan=lifespan,
     )
+    # VOIANT_FRONTEND_ORIGIN may be a comma-separated list; browsers send Origin with no
+    # trailing slash, so normalize (split, trim, strip trailing "/") to match reliably.
+    configured = [
+        o.strip().rstrip("/")
+        for o in (settings.voiant_frontend_origin or "").split(",")
+        if o.strip()
+    ]
+    allow_origins = list(dict.fromkeys(
+        configured + ["http://localhost:5173", "http://localhost:5174"]
+    ))
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=[
-            settings.voiant_frontend_origin,
-            "http://localhost:5173",
-            "http://localhost:5174",
-        ],
-        # Allow any Render-hosted frontend and the brightcone.ai custom domain
+        allow_origins=allow_origins,
+        # Also allow any Render-hosted frontend and the brightcone.ai custom domain
         # (incl. voiant.brightcone.ai) — survives URL changes / redeploys.
         allow_origin_regex=r"https://(.*\.onrender\.com|(.*\.)?brightcone\.ai)",
         allow_methods=["*"],
