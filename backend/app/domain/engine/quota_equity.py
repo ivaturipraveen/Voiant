@@ -85,6 +85,7 @@ def compute(reps: list[Rep], config: ClientConfig, data_source: str = "synthetic
                 segment_median_ratio=med,
                 deviation=dev,
                 band=band,
+                trend_6w=F.fairness_trend_6w(ratio, med),
             )
         )
         heatmap.append(
@@ -167,12 +168,17 @@ def _build_findings(
                     "over_assignment": str(over),
                     "over_assignment_pct": over_pct,
                 },
+                source_agent="Quota Equity",
+                confidence="high",
+                impact_label=f"${_m(over)}",
+                trend_6w=F.linear_trend_6w(float(target), float(deployed)),
             )
         )
 
     # 2. Paintbrushed segments (sorted by name for stable order).
     for s in sorted(segments, key=lambda x: x.segment):
         if s.is_paintbrushed:
+            seg_trends = [fr.trend_6w for fr in per_rep if fr.segment == s.segment]
             findings.append(
                 Finding(
                     code="PAINTBRUSH_SEGMENT",
@@ -188,6 +194,10 @@ def _build_findings(
                         "rep_count": s.rep_count,
                         "quota_cv": s.quota_cv,
                     },
+                    source_agent="Quota Equity",
+                    confidence="high",
+                    impact_label=f"${_m(s.deployed_quota)}",
+                    trend_6w=F.average_trends_6w(seg_trends) if seg_trends else F.linear_trend_6w(1.0, 1.0),
                 )
             )
 
@@ -195,6 +205,8 @@ def _build_findings(
     overloaded = [fr for fr in per_rep if fr.band == FairnessBand.OVERLOADED]
     overloaded.sort(key=lambda fr: (-fr.deviation, fr.rep_id))
     for fr in overloaded:
+        fair_quota = float(fr.opportunity) * fr.segment_median_ratio
+        excess = max(0.0, float(fr.quota) - fair_quota)
         findings.append(
             Finding(
                 code="REP_OVERLOADED",
@@ -211,6 +223,10 @@ def _build_findings(
                     "segment_median_ratio": fr.segment_median_ratio,
                     "deviation": fr.deviation,
                 },
+                source_agent="Quota Equity",
+                confidence="med",
+                impact_label=f"${_m(Decimal(str(round(excess, 2))))}" if excess > 0 else "—",
+                trend_6w=fr.trend_6w,
             )
         )
 

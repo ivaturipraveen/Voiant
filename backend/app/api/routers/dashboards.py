@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends
 
 from ...deps import get_runtime
 from ...runtime import AppRuntime
-from ...schemas.api import AgentRunResponse, ExecutiveSummaryResponse
+from ...schemas.api import AgentRunResponse, ExecutiveSummaryResponse, RecommendationsResponse
 from ...services import dashboard_service
 
 router = APIRouter(prefix="/dashboards", tags=["dashboards"])
@@ -25,3 +25,8 @@ def capacity_overview(role: str = "analyst", rt: AppRuntime = Depends(get_runtim
 @router.get("/executive-summary", response_model=ExecutiveSummaryResponse)
 def executive_summary(role: str = "analyst", rt: AppRuntime = Depends(get_runtime)) -> ExecutiveSummaryResponse:
     return dashboard_service.executive_summary(rt, role)
+
+
+@router.get("/recommendations", response_model=RecommendationsResponse)
+def recommendations(role: str = "analyst", rt: AppRuntime = Depends(get_runtime)) -> RecommendationsResponse:
+    return dashboard_service.recommendations(rt, role)

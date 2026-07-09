@@ -22,6 +22,7 @@ from ...schemas.capacity import (
     RepLoad,
     ScenarioOutcome,
 )
+from . import fairness as F
 from .provenance import provenance_assumption
 from .stats import mean, r6
 
@@ -81,7 +82,7 @@ def compute(reps: list[Rep], config: ClientConfig, data_source: str = "synthetic
 
     rollups = _rollups(per_rep, baselines)
     redistribution = _redistribution(per_rep, config)
-    findings = _findings(team_additional, pct, overloaded, underloaded, redistribution)
+    findings = _findings(team_additional, pct, overloaded, underloaded, redistribution, team_total)
     assumptions = _assumptions(config, data_source, len(reps))
 
     return CapacityReport(
@@ -176,7 +177,7 @@ def _redistribution(per_rep: list[RepLoad], config: ClientConfig) -> list[Redist
 
 def _findings(
     team_additional: Decimal, pct: float, overloaded: int, underloaded: int,
-    redistribution: list[RedistributionMove],
+    redistribution: list[RedistributionMove], team_total: Decimal,
 ) -> list[Finding]:
     findings: list[Finding] = []
     findings.append(
@@ -189,6 +190,10 @@ def _findings(
                 f"({pct:.1f}% of current deployed) before reps breach the sustainable ceiling."
             ),
             evidence={"additional_capacity": str(team_additional), "pct": pct},
+            source_agent="Capacity Headroom",
+            confidence="med",
+            impact_label=f"${_m(team_additional)}",
+            trend_6w=F.linear_trend_6w(float(team_total), float(team_total + team_additional)),
         )
     )
     if overloaded:
@@ -199,6 +204,10 @@ def _findings(
                 subject="team",
                 message=f"{overloaded} rep(s) are over-loaded and are candidates for redistribution.",
                 evidence={"overloaded": overloaded},
+                source_agent="Capacity Headroom",
+                confidence="high",
+                impact_label=f"{overloaded} reps",
+                trend_6w=F.linear_trend_6w(0.0, float(overloaded)),
             )
         )
     if underloaded:
@@ -209,6 +218,10 @@ def _findings(
                 subject="team",
                 message=f"{underloaded} rep(s) are under-loaded and have room to absorb more quota.",
                 evidence={"underloaded": underloaded},
+                source_agent="Capacity Headroom",
+                confidence="med",
+                impact_label=f"{underloaded} reps",
+                trend_6w=F.linear_trend_6w(0.0, float(underloaded)),
             )
         )
     if redistribution:
@@ -223,6 +236,10 @@ def _findings(
                     f"of quota from over-loaded to under-loaded reps."
                 ),
                 evidence={"moves": len(redistribution), "amount": str(moved)},
+                source_agent="Capacity Headroom",
+                confidence="med",
+                impact_label=f"${_m(moved)}",
+                trend_6w=F.linear_trend_6w(0.0, float(moved)),
             )
         )
     return findings

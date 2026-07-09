@@ -6,6 +6,8 @@ from typing import Any
 
 from pydantic import BaseModel
 
+from .analysis import Assumption
+
 
 class RunAgentRequest(BaseModel):
     question: str = "Is each rep's quota fair given their territory's opportunity?"
@@ -52,6 +54,28 @@ class ExecutiveSummaryResponse(BaseModel):
     narrative: str
     narrative_source: str
     generated_for: str  # role
+
+
+class RecommendationItem(BaseModel):
+    code: str
+    priority: str
+    title: str
+    description: str
+    tags: list[str]
+    impact: float
+    effort: str
+    confidence: str
+
+
+class RecommendationsResponse(BaseModel):
+    run_id: str
+    mock_data: bool
+    recommendations: list[RecommendationItem]
+    aggregate_impact: float
+    assumptions: list[Assumption]
+    paintbrush_segment: str | None = None
+    has_redistribution: bool = False
+    generated_for: str
 
 
 class IngestResponse(BaseModel):

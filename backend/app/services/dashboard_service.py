@@ -10,7 +10,15 @@ from decimal import Decimal
 
 from ..rbac.context import Principal
 from ..runtime import AppRuntime
-from ..schemas.api import AgentRunResponse, ExecMetric, ExecutiveSummaryResponse
+from ..schemas.api import (
+    AgentRunResponse,
+    ExecMetric,
+    ExecutiveSummaryResponse,
+    RecommendationItem,
+    RecommendationsResponse,
+)
+from ..schemas.analysis import Assumption
+from ..domain.engine import recommendations as rec_engine
 from . import analysis_service
 
 _SEVERITY_RANK = {"critical": 0, "warn": 1, "info": 2}
@@ -122,6 +130,46 @@ def executive_summary(rt: AppRuntime, role: str) -> ExecutiveSummaryResponse:
         top_findings=top,
         narrative=narrative,
         narrative_source="deterministic-aggregate",
+        generated_for=Principal.for_role(role).role,
+    )
+    _CACHE[key] = result
+    return result
+
+
+def recommendations(rt: AppRuntime, role: str) -> RecommendationsResponse:
+    if rt.snapshot is None:
+        rt.bootstrap_synthetic()
+
+    key = _cache_key(rt, "recommendations", role)
+    hit = _CACHE.get(key)
+    if hit is not None:
+        return hit  # type: ignore[return-value]
+
+    qe = territory_equity(rt, role)
+    cap = capacity_overview(rt, role)
+    terr = qe.report
+    cr = cap.report
+
+    built = rec_engine.build_recommendations(terr, cr, role)
+    items = [RecommendationItem(**r.model_dump()) for r in built]
+    aggregate = sum(r.impact for r in items)
+
+    assumption_map: dict[str, Assumption] = {}
+    for raw in list(terr.get("assumptions") or []) + list(cr.get("assumptions") or []):
+        a = Assumption(**raw)
+        if a.id not in assumption_map:
+            assumption_map[a.id] = a
+
+    paint_seg = next((s["segment"] for s in terr.get("segments", []) if s.get("is_paintbrushed")), None)
+
+    result = RecommendationsResponse(
+        run_id=qe.run_id,
+        mock_data=qe.mock_data,
+        recommendations=items,
+        aggregate_impact=aggregate,
+        assumptions=list(assumption_map.values()),
+        paintbrush_segment=paint_seg,
+        has_redistribution=bool(cr.get("redistribution")),
         generated_for=Principal.for_role(role).role,
     )
     _CACHE[key] = result
