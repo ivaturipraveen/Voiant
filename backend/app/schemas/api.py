@@ -42,11 +42,19 @@ class ExecMetric(BaseModel):
     label: str
     value: str
     tone: str = "neutral"  # neutral | good | warn | danger
+    subtitle: str | None = None
+    trend_text: str | None = None
+    trend_value: str | None = None
+    trend_color_class: str | None = None
+    chart_label: str | None = None
 
 
 class ExecutiveSummaryResponse(BaseModel):
     run_id: str
     mock_data: bool
+    page_metadata: dict[str, str] | None = None
+    headline_insight: dict[str, str] | None = None
+    headroom_context: dict[str, str] | None = None
     metrics: list[ExecMetric]
     top_findings: list[dict[str, Any]]  # severity-ranked findings from both agents
     narrative: str

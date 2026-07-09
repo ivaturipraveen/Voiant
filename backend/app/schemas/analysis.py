@@ -60,6 +60,9 @@ class SegmentSummary(BaseModel):
     total_pipeline: Decimal
     quota_cv: float  # coefficient of variation of quota within the segment
     is_paintbrushed: bool
+    company_target: Decimal
+    over_assignment: Decimal
+    over_assignment_pct: float
 
 
 class QuotaEquityReport(BaseModel):

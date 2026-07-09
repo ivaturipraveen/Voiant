@@ -3,13 +3,19 @@
 @tailwind utilities;
 
 @layer base {
-  body {
+  html, body {
     @apply text-ink antialiased;
     /* Clean, flat neutral — a single soft off-white, no gradients. */
     background: #f7f8fa;
     font-feature-settings: "cv11", "ss01";
     -webkit-font-smoothing: antialiased;
     text-rendering: optimizeLegibility;
+    -ms-overflow-style: none;  /* IE and Edge */
+    scrollbar-width: none;  /* Firefox */
+    overflow-x: hidden;
+  }
+  html::-webkit-scrollbar, body::-webkit-scrollbar {
+    display: none; /* Chrome, Safari and Opera */
   }
   h1,
   h2,

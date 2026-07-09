@@ -147,7 +147,7 @@ export function PageHeader({ title, sub, actions }: { title: string; sub: string
 }
 
 // Real Export action: downloads the current report as a JSON file (no dead buttons).
-export function ExportButton({ data, filename }: { data: unknown; filename: string }) {
+export function ExportButton({ data, filename, label = "Export" }: { data: unknown; filename: string; label?: string }) {
   const download = () => {
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
     const url = URL.createObjectURL(blob);
@@ -162,7 +162,7 @@ export function ExportButton({ data, filename }: { data: unknown; filename: stri
       <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
         <path d="M12 3v12M8 11l4 4 4-4M5 21h14" />
       </svg>
-      Export
+      {label}
     </button>
   );
 }

@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="44" height="44" viewBox="0 0 44 44">
+  <!-- Dark navy rounded background -->
+  <rect width="44" height="44" rx="9" fill="#0d1b2e"/>
+
+  <!-- Blue left arm: small, goes UP-LEFT from bottom-center (left stroke of checkmark) -->
+  <path d="M14 37 L19 37 L12 8 L7 8 Z" fill="#2d5fa8"/>
+
+  <!-- Green right arm: larger, goes UP-RIGHT from bottom-center (right stroke of checkmark) -->
+  <path d="M18 37 L26 37 L38 8 L30 8 Z" fill="#34c47a"/>
+</svg>

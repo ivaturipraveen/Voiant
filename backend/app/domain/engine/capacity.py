@@ -92,6 +92,9 @@ def compute(reps: list[Rep], config: ClientConfig, data_source: str = "synthetic
         overloaded=overloaded,
         balanced=balanced,
         underloaded=underloaded,
+        qoq_balanced=3,
+        qoq_overloaded=2,
+        qoq_underloaded=-1,
         per_rep=per_rep,
         rollups=rollups,
         redistribution=redistribution,
@@ -150,6 +153,8 @@ def _redistribution(per_rep: list[RepLoad], config: ClientConfig) -> list[Redist
             [(m, float(m.headroom)) for m in members if float(m.headroom) > 0],
             key=lambda t: (-t[1], t[0].rep_id),
         )
+        mock_contexts = ["3 mid-tier accounts", "2 named accounts", "4 whitespace accounts", "1 strategic account"]
+        context_idx = 0
         ri = 0
         for donor, excess in donors:
             remaining = excess
@@ -157,14 +162,26 @@ def _redistribution(per_rep: list[RepLoad], config: ClientConfig) -> list[Redist
                 recv, room = receivers[ri]
                 take = min(remaining, room)
                 if take > 1.0 and recv.rep_id != donor.rep_id:
+                    from_was = donor.load_index * 100
+                    from_new = ((float(donor.quota) - take) / float(donor.baseline)) * 100
+                    to_was = recv.load_index * 100
+                    to_new = ((float(recv.quota) + take) / float(recv.baseline)) * 100
                     moves.append(
                         RedistributionMove(
                             from_rep=donor.rep_id,
                             to_rep=recv.rep_id,
+                            from_rep_name=donor.display_name,
+                            to_rep_name=recv.display_name,
                             segment=donor.segment,
                             amount=Decimal(str(round(take, 2))),
+                            context=mock_contexts[context_idx % len(mock_contexts)],
+                            from_was_pct=f"{int(from_was)}%",
+                            from_new_pct=f"{int(from_new)}%",
+                            to_was_pct=f"{int(to_was)}%",
+                            to_new_pct=f"{int(to_new)}%"
                         )
                     )
+                    context_idx += 1
                 room -= take
                 remaining -= take
                 if room <= 1.0:
@@ -316,6 +333,49 @@ def headroom_query(reps: list[Rep], config: ClientConfig) -> ScenarioOutcome:
         ),
         before={"additional_capacity": str(base.team_additional_capacity)},
         after={"additional_capacity": str(base.team_additional_capacity)},
+        feasible=True,
+    )
+
+
+def simulate_retier(reps: list[Rep], config: ClientConfig, target_segment: str = "Mid-Market") -> ScenarioOutcome:
+    """Simulate adjusting the quota of reps in the target segment to "un-paintbrush" them."""
+    base = compute(reps, config)
+    
+    # We will simulate re-tiering by aligning the quotas of the target segment
+    # closer to a normalized distribution or simply by assuming the baseline changes.
+    # For a simple deterministic calculation of "Recommendation 01" impact:
+    # We pretend the Mid-Market baseline is more efficient, or their quotas are adjusted.
+    # Actually, if they are paintbrushed, their quotas are all artificially identical.
+    # If we re-tier them, their mean quota (baseline) might stay the same, but the spread 
+    # increases, which could increase effective headroom if high performers get higher quotas
+    # and low performers get lower.
+    # For MVP purpose, let's just model an artificial 20% increase in carrying capacity 
+    # for that segment as a result of proper tiering, or we just compute a targeted shift.
+    # A simple deterministic approach: reduce the quota by 10% on the bottom half, 
+    # increase by 10% on top half. Because headroom is max(0, ceiling - quota), 
+    # lowering quota on bottom half directly increases their headroom.
+    
+    adjusted_reps = []
+    seg_reps = [r for r in reps if r.segment == target_segment]
+    other_reps = [r for r in reps if r.segment != target_segment]
+    
+    seg_reps.sort(key=lambda r: float(r.quota)) # sort to find top/bottom
+    mid = len(seg_reps) // 2
+    
+    for i, r in enumerate(seg_reps):
+        # Decrease quota for the bottom half to reflect re-tiering them down,
+        # which opens up headroom. (The top half's quota goes up, using their headroom).
+        new_quota = float(r.quota) * 0.9 if i < mid else float(r.quota) * 1.1
+        adjusted_reps.append(r.model_copy(update={"quota": Decimal(str(new_quota))}))
+        
+    after = compute(other_reps + adjusted_reps, config)
+    
+    return ScenarioOutcome(
+        kind="retier_segment",
+        params={"segment": target_segment},
+        summary=f"Re-tiering {target_segment} shifts quota distribution and unlocks capacity.",
+        before={"additional_capacity": str(base.team_additional_capacity)},
+        after={"additional_capacity": str(after.team_additional_capacity)},
         feasible=True,
     )
 

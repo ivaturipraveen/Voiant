@@ -1,4 +1,4 @@
-export type Mode = "ask" | "territory" | "capacity" | "executive" | "platform" | "config" | "audit";
+export type Mode = "ask" | "territory" | "capacity" | "executive" | "platform" | "config" | "audit" | "recommendations";
 
 type Item = { id: Mode; label: string; icon: JSX.Element };
 

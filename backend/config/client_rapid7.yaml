@@ -10,6 +10,12 @@ company:
   name: "Rapid7"
   top_down_target: 130000000      # $130M company target (≠ deployed quota)
 
+historical:
+  top_down_target: 120000000      # $120M last year
+  deployed_quota: 130000000       # $130M deployed last year
+  attainment_ytd: 0.75            # 75% attainment pace last year
+  flag_count: 16                  # 16 flags last week
+
 # The reading rules the agents apply for THIS client.
 interpretation_rules:
   - id: deployed_vs_target
@@ -27,18 +33,22 @@ segment_definitions:
   - name: "Enterprise"
     expected_quota_to_pipeline: 0.25
     paintbrush_cv_threshold: 0.05
+    target: 52000000
   - name: "Commercial"
     expected_quota_to_pipeline: 0.33
     paintbrush_cv_threshold: 0.05
   - name: "Mid-Market"
     expected_quota_to_pipeline: 0.30
     paintbrush_cv_threshold: 0.05
+    target: 27000000
   - name: "SMB"
     expected_quota_to_pipeline: 0.40
     paintbrush_cv_threshold: 0.05
+    target: 9000000
   - name: "Strategic"
     expected_quota_to_pipeline: 0.20
     paintbrush_cv_threshold: 0.05
+    target: 42000000
 
 # Sales-process anchors (referenced by future agents; defined now).
 stage_criteria:

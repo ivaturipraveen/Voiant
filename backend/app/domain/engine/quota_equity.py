@@ -51,14 +51,21 @@ def compute(reps: list[Rep], config: ClientConfig, data_source: str = "synthetic
         cv = coefficient_of_variation(quotas)
         seg_def = config.segment_def(seg_name)
         threshold = seg_def.paintbrush_cv_threshold if seg_def else 0.05
+        target_val = Decimal(str(seg_def.target)) if seg_def else Decimal("0")
+        deployed_val = sum((m.quota for m in members), Decimal("0"))
+        seg_over_val = deployed_val - target_val
+        seg_over_pct = float(seg_over_val / target_val) * 100.0 if target_val else 0.0
         segments.append(
             SegmentSummary(
                 segment=members[0].segment,
                 rep_count=len(members),
-                deployed_quota=sum((m.quota for m in members), Decimal("0")),
+                deployed_quota=deployed_val,
                 total_pipeline=sum((m.pipeline_value for m in members), Decimal("0")),
                 quota_cv=cv,
                 is_paintbrushed=cv < threshold,
+                company_target=target_val,
+                over_assignment=seg_over_val,
+                over_assignment_pct=seg_over_pct,
             )
         )
 
@@ -131,7 +138,7 @@ def report_hash(report: QuotaEquityReport, config_version: int, snapshot_id: str
             for fr in report.per_rep
         ],
         "segments": [
-            [s.segment, s.quota_cv, s.is_paintbrushed] for s in report.segments
+            [s.segment, s.quota_cv, s.is_paintbrushed, str(s.company_target), s.over_assignment_pct] for s in report.segments
         ],
         "findings": [[f.code, f.subject, f.severity.value] for f in report.findings],
     }

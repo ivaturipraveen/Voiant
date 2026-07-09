@@ -60,6 +60,37 @@ export interface SegmentSummary {
   total_pipeline: string;
   quota_cv: number;
   is_paintbrushed: boolean;
+  company_target: string;
+  over_assignment: string;
+  over_assignment_pct: number;
+}
+
+export interface RecommendationTag {
+  label: string;
+  color_scheme: string;
+}
+
+export interface RecommendationCard {
+  id: string;
+  priority_num: string;
+  priority_label: string;
+  priority_color: string;
+  title: string;
+  description: string;
+  tags: RecommendationTag[];
+  impact_dollars: string;
+  effort: string;
+  confidence_level: string;
+  confidence_icon: string;
+}
+
+export interface RecommendationsReport {
+  aggregate_impact: string;
+  cards: RecommendationCard[];
+  client_name: string;
+  company_target_str: string;
+  snapshot_date_str: string;
+  refresh_cadence: string;
 }
 
 export interface QuotaEquityReport {
@@ -93,8 +124,15 @@ export interface RepLoad {
 export interface RedistributionMove {
   from_rep: string;
   to_rep: string;
+  from_rep_name: string;
+  to_rep_name: string;
   segment: string;
   amount: string;
+  context: string;
+  from_was_pct: string;
+  from_new_pct: string;
+  to_was_pct: string;
+  to_new_pct: string;
 }
 
 export interface ScenarioOutcome {
@@ -114,6 +152,9 @@ export interface CapacityReport {
   overloaded: number;
   balanced: number;
   underloaded: number;
+  qoq_balanced: number;
+  qoq_overloaded: number;
+  qoq_underloaded: number;
   per_rep: RepLoad[];
   rollups: Array<{
     segment: string;
@@ -155,11 +196,19 @@ export interface ExecMetric {
   label: string;
   value: string;
   tone: string;
+  subtitle?: string;
+  trend_text?: string;
+  trend_value?: string;
+  trend_color_class?: string;
+  chart_label?: string;
 }
 
 export interface ExecutiveSummaryResponse {
   run_id: string;
   mock_data: boolean;
+  page_metadata?: Record<string, string>;
+  headline_insight?: Record<string, string>;
+  headroom_context?: Record<string, string>;
   metrics: ExecMetric[];
   top_findings: Finding[];
   narrative: string;
@@ -265,6 +314,8 @@ export const api = {
     get<AgentRunResponse>(`/dashboards/territory-equity?role=${role}`),
   capacityOverview: (role: string) =>
     get<AgentRunResponse>(`/dashboards/capacity-overview?role=${role}`),
+  recommendationsOverview: (role: string) =>
+    get<AgentRunResponse>(`/dashboards/recommendations?role=${role}`),
   executiveSummary: (role: string) =>
     get<ExecutiveSummaryResponse>(`/dashboards/executive-summary?role=${role}`),
   system: () => get<SystemInfo>("/system"),

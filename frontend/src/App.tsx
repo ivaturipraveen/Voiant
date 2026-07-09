@@ -7,6 +7,7 @@ import {
   type ExecutiveSummaryResponse,
   type Health,
   type QuotaEquityReport,
+  type RecommendationsReport,
 } from "./api";
 import AppHeader from "./components/AppHeader";
 import AuditLogPage from "./components/AuditLogPage";
@@ -18,10 +19,12 @@ import { AssumptionsFooter } from "./components/GovernancePanels";
 import InspectPanel from "./components/InspectPanel";
 import ResultRenderer from "./components/ResultRenderer";
 import RightRail from "./components/RightRail";
-import Sidebar, { type Mode } from "./components/Sidebar";
+import type { Mode } from "./components/Sidebar";
+import PageHeaderNav from "./components/PageHeaderNav";
 import ThinkingIndicator from "./components/ThinkingIndicator";
 import CapacityPage from "./components/dashboards/CapacityPage";
 import ExecutivePage from "./components/dashboards/ExecutivePage";
+import RecommendationsPage from "./components/dashboards/RecommendationsPage";
 import TerritoryEquityPage from "./components/dashboards/TerritoryEquityPage";
 
 const AGENT_LABEL: Record<string, string> = {
@@ -31,13 +34,11 @@ const AGENT_LABEL: Record<string, string> = {
   scenario_orchestrator: "Scenario Orchestrator",
 };
 
-// The user's message, right-aligned like a chat bubble.
 function QuestionBubble({ text }: { text: string }) {
   return (
-    <div className="flex justify-end">
-      <span className="max-w-[85%] rounded-2xl rounded-br-sm bg-navy px-3.5 py-2 text-[13px] font-medium text-white">
-        {text}
-      </span>
+    <div className="flex items-center gap-3 border-l-[3px] border-[#4a77b4] pl-4 pt-1 pb-1">
+      <span className="text-[11px] font-bold uppercase tracking-widest text-[#4a77b4]">QUESTION</span>
+      <span className="text-[16px] font-medium text-navy">{text}</span>
     </div>
   );
 }
@@ -49,20 +50,23 @@ type DashEntry = {
   territory?: QuotaEquityReport;
   capacity?: CapacityReport;
   exec?: ExecutiveSummaryResponse;
+  recommendations?: RecommendationsReport;
+  narrative?: string;
 };
 
-const DASH_MODES: Mode[] = ["territory", "capacity", "executive"];
+const DASH_MODES: Mode[] = ["territory", "capacity", "executive", "recommendations"];
 
 export default function App() {
   const [authed, setAuthed] = useState<boolean>(() => sessionStorage.getItem("voiant_authed") === "1");
+  const [currentUser, setCurrentUser] = useState<string>(() => sessionStorage.getItem("voiant_user") || "Sarah Coleman");
   const [health, setHealth] = useState<Health | null>(null);
   const [role, setRole] = useState("admin");
 
-  const initialTab = (new URLSearchParams(window.location.search).get("tab") as Mode) || "territory";
+  const initialTab = (new URLSearchParams(window.location.search).get("tab") as Mode) || "executive";
   const [mode, setMode] = useState<Mode>(
     ["ask", "territory", "capacity", "executive", "platform", "config", "audit"].includes(initialTab)
       ? initialTab
-      : "territory"
+      : "executive"
   );
 
   // Conversational state
@@ -94,7 +98,7 @@ export default function App() {
   const [shieldBusy, setShieldBusy] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false); // mobile nav drawer (< lg)
 
-  const refreshHealth = () => api.health().then(setHealth).catch(() => {});
+  const refreshHealth = () => api.health().then(setHealth).catch(() => { });
   useEffect(() => {
     refreshHealth();
   }, []);
@@ -113,11 +117,15 @@ export default function App() {
       if (m === "territory") {
         const res = await api.territoryEquity(r);
         const rep = res.report as QuotaEquityReport;
-        entry = { fetchedAt: new Date(), runId: res.run_id, assumptions: rep.assumptions ?? [], territory: rep };
+        entry = { fetchedAt: new Date(), runId: res.run_id, assumptions: rep.assumptions ?? [], territory: rep, narrative: res.narrative };
       } else if (m === "capacity") {
         const res = await api.capacityOverview(r);
         const rep = res.report as CapacityReport;
-        entry = { fetchedAt: new Date(), runId: res.run_id, assumptions: rep.assumptions ?? [], capacity: rep };
+        entry = { fetchedAt: new Date(), runId: res.run_id, assumptions: rep.assumptions ?? [], capacity: rep, narrative: res.narrative };
+      } else if (m === "recommendations") {
+        const res = await api.recommendationsOverview(r);
+        const rep = res.report as RecommendationsReport;
+        entry = { fetchedAt: new Date(), runId: res.run_id, assumptions: [], recommendations: rep };
       } else {
         const res = await api.executiveSummary(r);
         entry = { fetchedAt: new Date(), runId: res.run_id, assumptions: [], exec: res };
@@ -194,6 +202,7 @@ export default function App() {
 
   const logout = () => {
     sessionStorage.removeItem("voiant_authed");
+    sessionStorage.removeItem("voiant_user");
     setAuthed(false);
   };
 
@@ -201,8 +210,10 @@ export default function App() {
   if (!authed) {
     return (
       <LoginPage
-        onSuccess={() => {
+        onSuccess={(user) => {
           sessionStorage.setItem("voiant_authed", "1");
+          sessionStorage.setItem("voiant_user", user);
+          setCurrentUser(user);
           setAuthed(true);
         }}
       />
@@ -213,7 +224,7 @@ export default function App() {
   const execCount = dashCache.current[`executive:${role}`]?.exec?.top_findings.length;
 
   return (
-    <div className="flex min-h-screen flex-col bg-[#f7f8fa]">
+    <div className="flex min-h-screen flex-col bg-[#f7f8fa] overflow-x-hidden w-full max-w-full">
       <AppHeader
         health={health}
         role={role}
@@ -222,19 +233,34 @@ export default function App() {
         shieldBusy={shieldBusy}
         onMenu={() => setSidebarOpen(true)}
         onLogout={logout}
+        currentUser={currentUser}
       />
 
-      <div className="flex flex-1">
-        <Sidebar
+      <div className="flex flex-1 flex-col px-6 md:px-8 overflow-x-hidden w-full max-w-full">
+        <PageHeaderNav
           mode={mode}
           onMode={setMode}
-          badges={execCount != null ? { executive: execCount } : undefined}
-          open={sidebarOpen}
-          onClose={() => setSidebarOpen(false)}
+          exportData={
+            mode === "territory"
+              ? dash?.territory
+              : mode === "capacity"
+                ? dash?.capacity
+                : mode === "recommendations"
+                  ? dash?.recommendations
+                  : mode === "executive"
+                    ? dash?.exec
+                    : mode === "ask"
+                      ? (chatRun ?? { section: "Analytical Q&A", note: "No analysis run yet." })
+                      : mode === "audit"
+                        ? { section: "Audit Log", generated: new Date().toISOString() }
+                        : mode === "config"
+                          ? { section: "Configuration", generated: new Date().toISOString() }
+                          : chatRun
+          }
+          metadata={dashCache.current[`executive:${role}`]?.exec?.page_metadata || dash?.exec?.page_metadata}
         />
-
         <main className="min-w-0 flex-1">
-          <div className="mx-auto max-w-[1440px] px-6 py-6">
+          <div className="pb-6">
             {error && (
               <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
                 {error} — is the backend running?
@@ -247,102 +273,119 @@ export default function App() {
                   {dashLoading || !dash ? (
                     <DashSkeleton />
                   ) : mode === "territory" && dash.territory ? (
-                    <TerritoryEquityPage report={dash.territory} />
+                    <TerritoryEquityPage report={dash.territory} narrative={dash.narrative} onOpenAudit={() => setMode("audit")} />
                   ) : mode === "capacity" && dash.capacity ? (
-                    <CapacityPage report={dash.capacity} />
+                    <CapacityPage report={dash.capacity} narrative={dash.narrative} onOpenAudit={() => setMode("audit")} />
+                  ) : mode === "recommendations" && dash.recommendations ? (
+                    <RecommendationsPage report={dash.recommendations} />
                   ) : mode === "executive" && dash.exec ? (
-                    <ExecutivePage data={dash.exec} />
+                    <ExecutivePage data={dash.exec} onOpenAudit={() => setMode("audit")} />
                   ) : (
                     <DashSkeleton />
                   )}
                 </div>
-                <RightRail
-                  assumptions={dash?.assumptions ?? []}
-                  runId={dash?.runId ?? null}
-                  onOpenAudit={() => setMode("audit")}
-                />
+                {!DASH_MODES.includes(mode) && (
+                  <RightRail
+                    assumptions={dash?.assumptions ?? []}
+                    runId={dash?.runId ?? null}
+                    onOpenAudit={() => setMode("audit")}
+                  />
+                )}
               </div>
             ) : mode === "config" ? (
               <ConfigPage role={role} onChanged={onDataChanged} />
+            ) : mode === "recommendations" ? (
+              <RecommendationsPage />
             ) : mode === "audit" ? (
               <AuditLogPage />
             ) : mode === "platform" ? (
               <BehindTheScenes role={role} />
             ) : (
-              // Conversational — a single centered column that uses the full width
-              <div className="mx-auto w-full max-w-4xl">
-                <div className="min-w-0 space-y-5">
-                  {chatHistory.length === 0 ? (
-                    <>
-                      <ChatPanel onAsk={ask} loading={loading} run={chatRun} />
-                      {loading ? (
-                        <div className="space-y-3">
-                          {pendingQuestion && <QuestionBubble text={pendingQuestion} />}
-                          <ThinkingIndicator question={pendingQuestion} />
+              // Conversational Q&A View
+              <div className="w-full pb-12">
+                <div className="flex items-center justify-between mb-4 mt-2 px-2">
+                  <h3 className="font-display text-[17px] font-medium text-navy">
+                    <span className="mr-2 text-[#4a77b4]">§ 05</span> Analytical Q&A
+                  </h3>
+                  <div className="text-[11px] text-slate-400">
+                    Natural-language interrogation of the underlying model · Sources cited in every response
+                  </div>
+                </div>
+
+                <div className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden flex flex-col h-[500px] md:h-[700px]">
+                  {/* Top Bar */}
+                  <div className="flex items-center justify-between bg-[#c6654b] px-6 py-3 text-white">
+                    <div className="flex items-center gap-2 text-[11px] font-semibold tracking-wide">
+                      <span className="h-1.5 w-1.5 rounded-full bg-white/90"></span>
+                      Ask Voiant
+                    </div>
+                    <div className="text-[10px] text-white/90 tracking-wide">
+                      Session · 24 Jun 2026 · 09:14 EDT
+                    </div>
+                  </div>
+
+                  {/* Scrollable Chat Area */}
+                  <div className="flex-1 overflow-y-auto p-8 relative">
+                    {chatHistory.length === 0 && !loading ? (
+                      <div className="flex h-full items-center justify-center text-center">
+                        <div className="max-w-sm">
+                          <p className="text-sm font-medium text-navy">Ask a question to begin</p>
+                          <p className="mt-1 text-[13px] text-slatebody">
+                            The matching analysis opens with your answer. Follow-up questions keep the
+                            context — ask “why?” or “what about the West?” and it stays on topic.
+                          </p>
                         </div>
-                      ) : (
-                        <div className="card grid place-items-center p-14 text-center">
-                          <div className="max-w-sm">
-                            <p className="text-sm font-medium text-navy">Ask a question to begin</p>
-                            <p className="mt-1 text-[13px] text-slatebody">
-                              The matching analysis opens with your answer. Follow-up questions keep the
-                              context — ask “why?” or “what about the West?” and it stays on topic.
-                            </p>
-                          </div>
-                        </div>
-                      )}
-                    </>
-                  ) : (
-                    <>
-                    <div className="space-y-6">
-                      {chatHistory.map((turn, i) => {
-                        const isLast = i === chatHistory.length - 1;
-                        return (
-                          <div
-                            key={turn.run_id + i}
-                            ref={isLast ? lastTurnRef : undefined}
-                            className="scroll-mt-20 space-y-3"
-                          >
-                            <QuestionBubble text={turn.question} />
-                            <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm shadow-[0_1px_2px_rgba(16,24,40,0.04)]">
-                              <span className="text-navy">
-                                <span className="mr-1.5 inline-block h-1.5 w-1.5 rounded-full bg-brand align-middle" />
-                                Answered by the <b>{AGENT_LABEL[turn.report_type] ?? "agent"}</b>
-                                {turn.trace?.routing?.confidence != null && (
-                                  <span className="ml-1 text-slatebody">
-                                    · {Math.round(Number(turn.trace.routing.confidence) * 100)}% confident
+                      </div>
+                    ) : (
+                      <div className="space-y-10">
+                        {chatHistory.map((turn, i) => {
+                          const isLast = i === chatHistory.length - 1;
+                          return (
+                            <div key={turn.run_id + i} ref={isLast ? lastTurnRef : undefined} className="space-y-6 scroll-mt-8">
+                              <QuestionBubble text={turn.question} />
+
+                              <div className="pl-6 border-l-2 border-slate-200/50">
+                                <div className="mb-4 flex items-center gap-2">
+                                  <span className="rounded bg-[#4a77b4] px-2.5 py-1 text-[9px] font-bold uppercase tracking-wider text-white shadow-sm">
+                                    {AGENT_LABEL[turn.report_type]?.toUpperCase() ?? "AGENT"}
                                   </span>
+                                  <span className="text-[11px] text-slate-400">
+                                    Routed by {AGENT_LABEL.synthesis}
+                                    {turn.trace?.routing?.confidence != null && ` · Cross-references TAM, deployed quota, and productivity`}
+                                  </span>
+                                </div>
+
+                                <div className="rounded-lg bg-slate-50 p-6 text-[13.5px] leading-relaxed text-slate-700">
+                                  <ResultRenderer run={turn} />
+                                </div>
+
+                                {isLast && <div className="mt-4"><AssumptionsFooter run={turn} /></div>}
+                                {isLast && (
+                                  <div className="mt-3">
+                                    <button className="text-[11px] font-semibold text-brand-dark hover:underline" onClick={() => setShowInspect((s) => !s)}>
+                                      {showInspect ? "Hide" : "Technical"} details
+                                    </button>
+                                    {showInspect && <div className="mt-3"><InspectPanel run={turn} /></div>}
+                                  </div>
                                 )}
-                                {i > 0 && turn.routed_from && (
-                                  <span className="ml-1 text-slatebody">· follow-up</span>
-                                )}
-                              </span>
-                              {isLast && (
-                                <button className="btn-ghost py-1.5 text-xs" onClick={() => setShowInspect((s) => !s)}>
-                                  {showInspect ? "Hide" : "Technical"} details
-                                </button>
-                              )}
+                              </div>
                             </div>
-                            {isLast && showInspect && <InspectPanel run={turn} />}
-                            <ResultRenderer run={turn} />
-                            {isLast && <AssumptionsFooter run={turn} />}
+                          );
+                        })}
+                        {loading && (
+                          <div ref={pendingRef} className="scroll-mt-20 space-y-6">
+                            {pendingQuestion && <QuestionBubble text={pendingQuestion} />}
+                            <ThinkingIndicator question={pendingQuestion} />
                           </div>
-                        );
-                      })}
-                      {loading && (
-                        <div ref={pendingRef} className="scroll-mt-20 space-y-3">
-                          {pendingQuestion && <QuestionBubble text={pendingQuestion} />}
-                          <ThinkingIndicator question={pendingQuestion} />
-                        </div>
-                      )}
-                    </div>
-                    {/* Composer docks to the bottom of the viewport — always reachable while
-                        scrolling the thread, like a real chat. The thread fades out behind it. */}
-                    <div className="sticky bottom-0 z-20 -mx-1 bg-gradient-to-t from-[#f7f8fa] via-[#f7f8fa]/95 to-transparent px-1 pb-2 pt-4">
-                      <ChatPanel onAsk={ask} loading={loading} run={chatRun} docked />
-                    </div>
-                    </>
-                  )}
+                        )}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Pinned Input */}
+                  <div className="border-t border-slate-100 bg-white p-4">
+                    <ChatPanel onAsk={ask} loading={loading} run={chatRun} docked />
+                  </div>
                 </div>
               </div>
             )}
@@ -350,8 +393,27 @@ export default function App() {
         </main>
       </div>
 
-      <footer className="border-t border-slate-200 bg-white px-6 py-4 text-center text-xs text-slate-400">
-        Voiant Sales Planning Intelligence · Governance-first agentic AI · Synthetic data only
+      <footer className="border-t border-slate-200 bg-white px-10 py-5 text-[11px] text-slate-500">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <img src="/image.png" alt="Voiant logo" className="h-5 w-5 object-contain" />
+            <span className="font-bold uppercase tracking-wider text-[#4a77b4] text-[12px]">VOIANT</span>
+            <span className="text-slate-300">·</span>
+            <span>Sales Planning Intelligence - Preview build v0.4</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="flex items-center gap-1.5">
+              Delivered by
+              <img src="/brightcone-wordmark.webp" alt="Brightcone logo" className="h-[18px] object-contain" />
+            </span>
+            <span className="text-slate-300">·</span>
+            <span>Two-tier secure ingestion</span>
+            <span className="text-slate-300">·</span>
+            <span>SOC 2 Type 2 aligned</span>
+            <span className="text-slate-300">·</span>
+            <span>Anthropic Claude inference</span>
+          </div>
+        </div>
       </footer>
     </div>
   );

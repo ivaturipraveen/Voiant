@@ -26,6 +26,7 @@ class SegmentDefinition(BaseModel):
     name: str
     expected_quota_to_pipeline: float
     paintbrush_cv_threshold: float  # CV below this ⇒ "paintbrushed"
+    target: float = 0.0
 
 
 class StageCriterion(BaseModel):
@@ -81,6 +82,14 @@ class CompanyConfig(BaseModel):
     top_down_target: Decimal
 
 
+class HistoricalMetrics(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    top_down_target: Decimal | None = None
+    deployed_quota: Decimal | None = None
+    attainment_ytd: float | None = None
+    flag_count: int | None = None
+
+
 class ClientConfig(BaseModel):
     """The full validated client configuration."""
 
@@ -97,6 +106,7 @@ class ClientConfig(BaseModel):
     rbac_roles: list[RoleMasking]
     model_routing: ModelRouting = ModelRouting()
     capacity: CapacityConfig = CapacityConfig()
+    historical: HistoricalMetrics = HistoricalMetrics()
     # Which columns hold PII and how to label their tokens — declared per client, NOT
     # hardcoded, so any dataset's PII columns are masked correctly. Defaults cover the
     # standard rep shape; a client with e.g. a "contact_email" column just lists it here.

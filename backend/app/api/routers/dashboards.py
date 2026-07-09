@@ -25,3 +25,8 @@ def capacity_overview(role: str = "analyst", rt: AppRuntime = Depends(get_runtim
 @router.get("/executive-summary", response_model=ExecutiveSummaryResponse)
 def executive_summary(role: str = "analyst", rt: AppRuntime = Depends(get_runtime)) -> ExecutiveSummaryResponse:
     return dashboard_service.executive_summary(rt, role)
+
+
+@router.get("/recommendations", response_model=AgentRunResponse)
+def recommendations_overview(role: str = "analyst", rt: AppRuntime = Depends(get_runtime)) -> AgentRunResponse:
+    return dashboard_service.recommendations_overview(rt, role)

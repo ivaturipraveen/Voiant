@@ -37,8 +37,15 @@ class CapacitySegmentRollup(BaseModel):
 class RedistributionMove(BaseModel):
     from_rep: str
     to_rep: str
+    from_rep_name: str
+    to_rep_name: str
     segment: str
     amount: Decimal  # quota to move from an overloaded rep to one with headroom
+    context: str
+    from_was_pct: str
+    from_new_pct: str
+    to_was_pct: str
+    to_new_pct: str
 
 
 class ScenarioOutcome(BaseModel):
@@ -58,6 +65,9 @@ class CapacityReport(BaseModel):
     overloaded: int
     balanced: int
     underloaded: int
+    qoq_balanced: int
+    qoq_overloaded: int
+    qoq_underloaded: int
     per_rep: list[RepLoad]
     rollups: list[CapacitySegmentRollup]
     redistribution: list[RedistributionMove]
