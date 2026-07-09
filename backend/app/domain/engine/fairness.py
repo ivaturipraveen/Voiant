@@ -41,3 +41,33 @@ def color_for_band(band: FairnessBand, bands: list) -> str:
         if b.name == band.value:
             return b.color
     return "#9CA3AF"
+
+
+def linear_trend_6w(start: float, end: float, points: int = 6) -> list[float]:
+    """Interpolate `points` values from start to end (inclusive)."""
+    if points < 2:
+        return [r6(end)]
+    step = (end - start) / (points - 1)
+    return [r6(start + step * i) for i in range(points)]
+
+
+def average_trends_6w(series: list[list[float]], points: int = 6) -> list[float]:
+    """Point-wise mean of same-length trend series."""
+    if not series:
+        return [0.0] * points
+    n = min(len(s) for s in series)
+    return [r6(sum(s[i] for s in series) / len(series)) for i in range(n)]
+
+
+def fairness_trend_6w(ratio: float, segment_median: float, points: int = 6) -> list[float]:
+    """Six-point fairness-ratio series ending at the rep's current ratio.
+
+    Interpolates from the segment median (fair baseline) when weekly history is
+    unavailable, so trend direction and slope reflect the live deviation.
+    """
+    if points < 2:
+        return [ratio]
+    if segment_median <= 0:
+        return [ratio] * points
+    step = (ratio - segment_median) / (points - 1)
+    return [r6(segment_median + step * i) for i in range(points)]

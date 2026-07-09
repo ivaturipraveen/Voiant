@@ -26,6 +26,10 @@ class Finding(BaseModel):
     subject: str  # segment name | rep_id | "company"
     message: str
     evidence: dict[str, str | float | int]
+    source_agent: str  # e.g. "Quota Equity", "Capacity Headroom"
+    confidence: str  # "low" | "med" | "high"
+    impact_label: str = "—"  # formatted impact for executive tables
+    trend_6w: list[float]  # six-point series for sparklines (Phase A: derived from live snapshot)
 
 
 class FairnessResult(BaseModel):
@@ -40,6 +44,7 @@ class FairnessResult(BaseModel):
     segment_median_ratio: float
     deviation: float  # signed deviation from segment median ratio
     band: FairnessBand
+    trend_6w: list[float]  # fairness-ratio series ending at fairness_ratio
 
 
 class HeatmapCell(BaseModel):

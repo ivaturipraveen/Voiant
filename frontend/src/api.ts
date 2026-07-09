@@ -19,6 +19,10 @@ export interface Finding {
   subject: string;
   message: string;
   evidence: Record<string, string | number>;
+  source_agent?: string;
+  confidence?: string;
+  impact_label?: string;
+  trend_6w?: number[];
 }
 
 export interface Assumption {
@@ -51,6 +55,7 @@ export interface FairnessResult {
   segment_median_ratio: number;
   deviation: number;
   band: string;
+  trend_6w?: number[];
 }
 
 export interface SegmentSummary {
@@ -167,6 +172,28 @@ export interface ExecutiveSummaryResponse {
   generated_for: string;
 }
 
+export interface RecommendationItem {
+  code: string;
+  priority: string;
+  title: string;
+  description: string;
+  tags: string[];
+  impact: number;
+  effort: string;
+  confidence: string;
+}
+
+export interface RecommendationsResponse {
+  run_id: string;
+  mock_data: boolean;
+  recommendations: RecommendationItem[];
+  aggregate_impact: number;
+  assumptions: Assumption[];
+  paintbrush_segment: string | null;
+  has_redistribution: boolean;
+  generated_for: string;
+}
+
 export interface LineageResponse {
   run_id: string;
   events: Array<Record<string, string>>;
@@ -267,6 +294,8 @@ export const api = {
     get<AgentRunResponse>(`/dashboards/capacity-overview?role=${role}`),
   executiveSummary: (role: string) =>
     get<ExecutiveSummaryResponse>(`/dashboards/executive-summary?role=${role}`),
+  recommendations: (role: string) =>
+    get<RecommendationsResponse>(`/dashboards/recommendations?role=${role}`),
   system: () => get<SystemInfo>("/system"),
   lineage: (runId: string) => get<LineageResponse>(`/lineage/${runId}`),
   audit: (runId: string) => get<AuditResponse>(`/audit/${runId}`),

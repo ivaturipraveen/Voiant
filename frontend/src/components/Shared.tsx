@@ -133,6 +133,51 @@ export function StatStrip({ children }: { children: ReactNode }) {
   return <div className="flex flex-wrap gap-3">{children}</div>;
 }
 
+// A tiny inline sparkline (decorative trend indicator). Points are drawn edge-to-edge.
+export function Sparkline({
+  data,
+  color = "#94A3B8",
+  className = "h-7 w-full",
+}: {
+  data: number[];
+  color?: string;
+  className?: string;
+}) {
+  const w = 100;
+  const h = 28;
+  const min = Math.min(...data);
+  const max = Math.max(...data);
+  const span = max - min || 1;
+  const pts = data
+    .map((v, i) => {
+      const x = (i / (data.length - 1)) * w;
+      const y = h - ((v - min) / span) * (h - 4) - 2;
+      return `${x.toFixed(1)},${y.toFixed(1)}`;
+    })
+    .join(" ");
+  return (
+    <svg viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="none" className={className} aria-hidden>
+      <polyline points={pts} fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+// Deterministic gentle series from a string seed — stable across renders, so the
+// decorative trend lines don't jitter. Direction nudges the drift up/down/flat.
+export function spark(seed: string, dir: "up" | "down" | "flat" = "flat", n = 8): number[] {
+  let s = 7;
+  for (const c of seed) s = (s * 31 + c.charCodeAt(0)) % 99991;
+  const out: number[] = [];
+  const base = 30 + (s % 18);
+  for (let i = 0; i < n; i++) {
+    s = (s * 1103515245 + 12345) & 0x7fffffff;
+    const noise = (s % 9) - 4;
+    const drift = dir === "up" ? i * 3.2 : dir === "down" ? -i * 3.2 : Math.sin(i) * 2;
+    out.push(base + drift + noise);
+  }
+  return out;
+}
+
 // Dashboard page header: big title + subtitle on the left, action buttons on the right.
 export function PageHeader({ title, sub, actions }: { title: string; sub: string; actions?: ReactNode }) {
   return (

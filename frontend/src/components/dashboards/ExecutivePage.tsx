@@ -59,13 +59,15 @@ export default function ExecutivePage({ data }: { data: ExecutiveSummaryResponse
                   <td className="py-3 pr-4 text-navy">{f.message}</td>
                   <td className="whitespace-nowrap py-3 pr-4">
                     <span className="inline-block whitespace-nowrap rounded bg-slate-100 px-2 py-0.5 text-[11px] font-medium text-slatebody">
-                      {sourceAgent(f)}
+                      {f.source_agent ?? sourceAgent(f)}
                     </span>
                   </td>
                   <td className="whitespace-nowrap py-3 pr-4">
-                    <ConfidenceBadge severity={f.severity} />
+                    <ConfidenceBadge confidence={f.confidence} severity={f.severity} />
                   </td>
-                  <td className="whitespace-nowrap py-3 text-right font-semibold tabular-nums text-navy">{impact(f)}</td>
+                  <td className="whitespace-nowrap py-3 text-right font-semibold tabular-nums text-navy">
+                    {f.impact_label ?? impact(f)}
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -83,13 +85,17 @@ function sourceAgent(f: Finding): string {
   return "Platform";
 }
 
-function ConfidenceBadge({ severity }: { severity: string }) {
+function ConfidenceBadge({ confidence, severity }: { confidence?: string; severity: string }) {
+  const conf = confidence?.toLowerCase();
   const map: Record<string, { label: string; cls: string }> = {
+    high: { label: "High", cls: "bg-red-50 text-red-700" },
+    med: { label: "Med", cls: "bg-amber-50 text-amber-700" },
+    low: { label: "Low", cls: "bg-slate-100 text-slate-500" },
     critical: { label: "High", cls: "bg-red-50 text-red-700" },
     warn: { label: "Med", cls: "bg-amber-50 text-amber-700" },
     info: { label: "Low", cls: "bg-slate-100 text-slate-500" },
   };
-  const b = map[severity] ?? map.info;
+  const b = (conf && map[conf]) ?? map[severity] ?? map.info;
   return <span className={`rounded px-2 py-0.5 text-[11px] font-semibold uppercase ${b.cls}`}>{b.label}</span>;
 }
 

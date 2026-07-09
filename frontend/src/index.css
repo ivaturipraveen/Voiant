@@ -3,6 +3,14 @@
 @tailwind utilities;
 
 @layer base {
+  /* Hide page scrollbar; wheel / trackpad / touch scrolling still works. */
+  html {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+  html::-webkit-scrollbar {
+    display: none;
+  }
   body {
     @apply text-ink antialiased;
     /* Clean, flat neutral — a single soft off-white, no gradients. */
@@ -10,6 +18,11 @@
     font-feature-settings: "cv11", "ss01";
     -webkit-font-smoothing: antialiased;
     text-rendering: optimizeLegibility;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+  body::-webkit-scrollbar {
+    display: none;
   }
   h1,
   h2,

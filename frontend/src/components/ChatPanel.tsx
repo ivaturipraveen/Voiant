@@ -13,13 +13,17 @@ export default function ChatPanel({
   loading,
   run,
   docked = false,
+  bare = false,
+  hideChips = false,
 }: {
   onAsk: (q: string) => void;
   loading: boolean;
   run: AgentRunResponse | null;
   docked?: boolean; // bottom-of-thread composer: starts empty, no run footer
+  bare?: boolean; // no outer card chrome — embeds inline (e.g. the bottom of a card)
+  hideChips?: boolean; // suppress the suggestion / follow-up chips
 }) {
-  const [q, setQ] = useState(docked ? "" : SUGGESTIONS[0]);
+  const [q, setQ] = useState(docked || bare ? "" : SUGGESTIONS[0]);
 
   const submit = (text: string) => {
     if (!text.trim() || loading) return;
@@ -29,40 +33,54 @@ export default function ChatPanel({
 
   const chips = (run?.suggested_followups ?? SUGGESTIONS).slice(0, 4);
 
+  const inputRow = (
+    <div className="flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50/60 px-3 py-1.5 transition focus-within:border-brand focus-within:bg-white focus-within:ring-2 focus-within:ring-brand/15">
+      <svg viewBox="0 0 24 24" className="h-4 w-4 shrink-0 text-slate-400" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+        <circle cx="11" cy="11" r="7" />
+        <line x1="21" y1="21" x2="16.65" y2="16.65" />
+      </svg>
+      <input
+        value={q}
+        onChange={(e) => setQ(e.target.value)}
+        onKeyDown={(e) => e.key === "Enter" && submit(q)}
+        placeholder="Ask about quota, capacity, territory, or scenarios…"
+        className="flex-1 bg-transparent py-1.5 text-sm text-navy outline-none placeholder:text-slate-400"
+      />
+      <button className="btn-primary shrink-0 py-1.5" onClick={() => submit(q)} disabled={loading}>
+        {loading ? "Thinking…" : "Ask"}
+      </button>
+    </div>
+  );
+
+  const chipsBlock = !hideChips && (
+    <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
+      <span className="mr-1 text-[11px] font-medium text-slate-400">{run ? "Follow-ups" : "Try"}</span>
+      {chips.map((s) => (
+        <button
+          key={s}
+          onClick={() => submit(s)}
+          disabled={loading}
+          className="rounded-full border border-slate-200 bg-white px-3 py-1 text-xs text-slatebody transition hover:border-brand hover:bg-brand/5 hover:text-brand-dark disabled:opacity-50"
+        >
+          {s}
+        </button>
+      ))}
+    </div>
+  );
+
+  if (bare) {
+    return (
+      <div>
+        {inputRow}
+        {chipsBlock}
+      </div>
+    );
+  }
+
   return (
     <div className={docked ? "card p-3 shadow-lg ring-1 ring-black/5" : "card p-4"}>
-      <div className="flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50/60 px-3 py-1.5 transition focus-within:border-brand focus-within:bg-white focus-within:ring-2 focus-within:ring-brand/15">
-        <svg viewBox="0 0 24 24" className="h-4 w-4 shrink-0 text-slate-400" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-          <circle cx="11" cy="11" r="7" />
-          <line x1="21" y1="21" x2="16.65" y2="16.65" />
-        </svg>
-        <input
-          value={q}
-          onChange={(e) => setQ(e.target.value)}
-          onKeyDown={(e) => e.key === "Enter" && submit(q)}
-          placeholder={docked ? "Ask a follow-up…" : "Ask a sales-planning question…"}
-          className="flex-1 bg-transparent py-1.5 text-sm text-navy outline-none placeholder:text-slate-400"
-        />
-        <button className="btn-primary shrink-0 py-1.5" onClick={() => submit(q)} disabled={loading}>
-          {loading ? "Thinking…" : "Ask"}
-        </button>
-      </div>
-
-      <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
-        <span className="mr-1 text-[11px] font-medium text-slate-400">
-          {run ? "Follow-ups" : "Try"}
-        </span>
-        {chips.map((s) => (
-          <button
-            key={s}
-            onClick={() => submit(s)}
-            disabled={loading}
-            className="rounded-full border border-slate-200 bg-white px-3 py-1 text-xs text-slatebody transition hover:border-brand hover:bg-brand/5 hover:text-brand-dark disabled:opacity-50"
-          >
-            {s}
-          </button>
-        ))}
-      </div>
+      {inputRow}
+      {chipsBlock}
     </div>
   );
 }
