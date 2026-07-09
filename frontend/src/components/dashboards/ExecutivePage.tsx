@@ -95,7 +95,7 @@ function ConfidenceBadge({ confidence, severity }: { confidence?: string; severi
     warn: { label: "Med", cls: "bg-amber-50 text-amber-700" },
     info: { label: "Low", cls: "bg-slate-100 text-slate-500" },
   };
-  const b = (conf && map[conf]) ?? map[severity] ?? map.info;
+  const b = (conf ? map[conf] : undefined) ?? map[severity] ?? map.info;
   return <span className={`rounded px-2 py-0.5 text-[11px] font-semibold uppercase ${b.cls}`}>{b.label}</span>;
 }
 
