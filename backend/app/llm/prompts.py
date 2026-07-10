@@ -25,7 +25,7 @@ _FALLBACK_NARRATIVE = (
 )
 _FALLBACK_CLASSIFIER = (
     "You are the intent router for Voiant Sales Planning Intelligence. Choose the specialist for "
-    "the question by MEANING (not keywords): quota_equity, capacity_headroom, or synthesis. "
+    "the question by MEANING (not keywords): quota_equity, capacity_headroom, synthesis, or general. "
     'Respond with ONLY JSON: {"agent": "…", "confidence": <0.0-1.0>, "reason": "…"}'
 )
 _FALLBACK_SYNTHESIS = (

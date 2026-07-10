@@ -44,7 +44,7 @@ def plan(
         )
 
     if llm is not None and getattr(llm, "enabled", False):
-        c = llm.classify(question, registry.names(), history)
+        c = llm.classify(question, registry.names() + ["general"], history)
         if c:
             agent = c["agent"]
             detail = {
@@ -53,6 +53,8 @@ def plan(
                 "confidence": c.get("confidence"),
                 "reason": c.get("reason"),
             }
+            if agent == "general":
+                return Plan("general", [], "model-classified", detail)
             if agent == "synthesis":
                 return Plan("synthesis", list(_SYNTHESIS_AGENTS), "model-classified", detail)
             return Plan("single", [agent], "model-classified", detail)

@@ -20,7 +20,7 @@ type ChartRow = { label: string; value: number; highlight: boolean };
 
 // Group per-rep rows into a per-segment average of the given numeric field.
 function segmentAverages(
-  rows: Array<{ segment: string; [k: string]: unknown }>,
+  rows: Array<{ segment: string;[k: string]: unknown }>,
   field: string
 ): Array<{ segment: string; value: number }> {
   const map = new Map<string, { sum: number; n: number }>();
@@ -124,12 +124,11 @@ function splitLead(src: string): { lead: string | null; body: string } {
   return { lead: null, body: text };
 }
 
-function QACard({
+function QATurn({
   turn,
   isLast,
   showInspect,
   onToggleInspect,
-  sessionLabel,
   onAsk,
   loading,
   innerRef,
@@ -138,7 +137,6 @@ function QACard({
   isLast: boolean;
   showInspect: boolean;
   onToggleInspect: () => void;
-  sessionLabel: string;
   onAsk: (q: string) => void;
   loading: boolean;
   innerRef?: RefObject<HTMLDivElement>;
@@ -151,93 +149,83 @@ function QACard({
   const followups = turn.suggested_followups ?? [];
 
   return (
-    <div
-      ref={innerRef}
-      className="scroll-mt-24 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_1px_2px_rgba(16,24,40,0.04)]"
-    >
-      {/* Coral session header */}
-      <div className="flex items-center justify-between bg-[#d9714f] px-5 py-2.5 text-white">
-        <span className="flex items-center gap-2 text-[12px] font-semibold tracking-wide">
-          <span className="h-1.5 w-1.5 rounded-full bg-white/90" />
-          Ask Voiant
-        </span>
-        <span className="text-[11px] font-medium text-white/85">Session · {sessionLabel}</span>
+    <div ref={innerRef} className="scroll-mt-24 space-y-4">
+      {/* Question */}
+      <div className="border-l-2 border-brand pl-3">
+        <div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-400">Question</div>
+        <h3 className="mt-0.5 font-display text-[17px] font-semibold leading-snug tracking-tight text-navy">
+          {turn.question}
+        </h3>
       </div>
 
-      <div className="p-5 sm:p-6">
-        {/* Question */}
-        <div className="border-l-2 border-brand pl-3">
-          <div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-400">Question</div>
-          <h3 className="mt-0.5 font-display text-[17px] font-semibold leading-snug tracking-tight text-navy">
-            {turn.question}
-          </h3>
-        </div>
-
-        {/* Agent pill + routing line */}
-        <div className="mt-3 flex flex-wrap items-center gap-2 text-[11px] text-slate-400">
-          <span className="rounded bg-navy px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white">
-            {agent} Agent
-          </span>
+      {/* Agent pill + routing line */}
+      <div className="mt-3 flex flex-wrap items-center gap-2 text-[11px] text-slate-400">
+        <span className="rounded bg-navy px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white">
+          {turn.report_type === "general" ? "General" : `${agent} Agent`}
+        </span>
+        {turn.report_type !== "general" && (
           <span>
             Routed by Scenario Orchestrator
             {conf != null && ` · ${Math.round(Number(conf) * 100)}% confident`}
             {turn.routed_from && !isLast ? " · follow-up" : ""}
             {" · cross-references TAM, deployed quota, and productivity baseline"}
           </span>
+        )}
+      </div>
+
+      {/* Highlighted lead */}
+      {lead && (
+        <div className="mt-4 rounded-lg border-l-2 border-brand bg-slate-50/80 px-4 py-3">
+          <Markdown source={lead} />
         </div>
+      )}
 
-        {/* Highlighted lead */}
-        {lead && (
-          <div className="mt-4 rounded-lg border-l-2 border-brand bg-slate-50/80 px-4 py-3">
-            <Markdown source={lead} />
+      {/* Body narrative */}
+      {body && (
+        <div className="mt-4">
+          <Markdown source={body} />
+        </div>
+      )}
+
+      {/* Inline graphical representation */}
+      <AnswerChart run={turn} />
+
+      {/* Assumptions applied */}
+      {assumptions.length > 0 && (
+        <div className="mt-4 border-t border-slate-100 pt-3">
+          <div className="text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-400">
+            Assumptions applied
           </div>
-        )}
+          <p className="mt-1.5 text-[12px] leading-relaxed text-slate-500">
+            {assumptions.map((a) => a.statement).join(" ")}
+          </p>
+        </div>
+      )}
 
-        {/* Body narrative */}
-        {body && (
-          <div className="mt-4">
-            <Markdown source={body} />
+      {/* Suggested follow-up questions */}
+      {followups.length > 0 && (
+        <div className="mt-4 border-t border-slate-100 pt-3">
+          <div className="text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-400">
+            Suggested follow-up questions
           </div>
-        )}
-
-        {/* Inline graphical representation */}
-        <AnswerChart run={turn} />
-
-        {/* Assumptions applied */}
-        {assumptions.length > 0 && (
-          <div className="mt-4 border-t border-slate-100 pt-3">
-            <div className="text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-400">
-              Assumptions applied
-            </div>
-            <p className="mt-1.5 text-[12px] leading-relaxed text-slate-500">
-              {assumptions.map((a) => a.statement).join(" ")}
-            </p>
+          <div className="mt-2 space-y-1">
+            {followups.map((q) => (
+              <button
+                key={q}
+                onClick={() => onAsk(q)}
+                disabled={loading}
+                className="flex items-center gap-2 text-left text-[13px] text-brand-dark transition hover:underline disabled:opacity-50"
+              >
+                <span className="text-slate-300">→</span>
+                {q}
+              </button>
+            ))}
           </div>
-        )}
+        </div>
+      )}
 
-        {/* Suggested follow-up questions */}
-        {followups.length > 0 && (
-          <div className="mt-4 border-t border-slate-100 pt-3">
-            <div className="text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-400">
-              Suggested follow-up questions
-            </div>
-            <div className="mt-2 space-y-1">
-              {followups.map((q) => (
-                <button
-                  key={q}
-                  onClick={() => onAsk(q)}
-                  disabled={loading}
-                  className="flex items-center gap-2 text-left text-[13px] text-brand-dark transition hover:underline disabled:opacity-50"
-                >
-                  <span className="text-slate-300">→</span>
-                  {q}
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Actions + provenance */}
+      {/* Actions + provenance */}
+      {turn.report_type !== "general" && (
         <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-slate-100 pt-3">
           <button onClick={() => setShowSupport((s) => !s)} className="btn-ghost py-1.5 text-xs">
             {showSupport ? "Hide" : "Show"} supporting charts &amp; tables
@@ -251,21 +239,22 @@ function QACard({
             via {turn.narrative_source} · hash {turn.determinism_hash.slice(0, 10)}
           </span>
         </div>
+      )}
 
-        {isLast && showInspect && (
-          <div className="mt-3">
-            <InspectPanel run={turn} />
-          </div>
-        )}
-        {showSupport && (
-          <div className="mt-4 border-t border-slate-100 pt-4">
-            <ResultRenderer run={turn} />
-          </div>
-        )}
-      </div>
+      {isLast && showInspect && (
+        <div className="mt-3">
+          <InspectPanel run={turn} />
+        </div>
+      )}
+      {showSupport && (
+        <div className="mt-4 border-t border-slate-100 pt-4">
+          <ResultRenderer run={turn} />
+        </div>
+      )}
     </div>
   );
 }
+
 
 // Analytical Q&A (§ 05) — the conversational agent framed as a document-style Q&A surface.
 // All routing, follow-ups, session context, role masking, technical trace, and supporting
@@ -280,6 +269,7 @@ export default function AnalyticalQA({
   onToggleInspect,
   lastTurnRef,
   pendingRef,
+  classifiedIntent,
 }: {
   chatHistory: AgentRunResponse[];
   loading: boolean;
@@ -290,6 +280,7 @@ export default function AnalyticalQA({
   onToggleInspect: () => void;
   lastTurnRef: RefObject<HTMLDivElement>;
   pendingRef: RefObject<HTMLDivElement>;
+  classifiedIntent: "general" | "agent" | null;
 }) {
   const sessionLabel = useMemo(() => {
     const d = new Date();
@@ -301,89 +292,112 @@ export default function AnalyticalQA({
 
   return (
     <div className="space-y-5">
-      <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <h3 className="font-display text-[16px] font-semibold tracking-tight text-navy">
-          <span className="mr-2 font-mono text-[12px] text-slate-400">§ 05</span>
-          Analytical Q&amp;A
-        </h3>
-        <span className="text-[11px] text-slate-400">
-          Natural-language interrogation of the underlying model · sources cited in every response
-        </span>
+      <div className="sticky top-[109px] z-10 bg-[#f9fafb] pt-1">
+        {/* Section Header */}
+        <div className="flex flex-wrap items-baseline justify-between gap-2 pb-4">
+          <h3 className="font-display text-[16px] font-semibold tracking-tight text-navy">
+            <span className="mr-2 font-mono text-[12px] text-slate-400">§ 05</span>
+            Analytical Q&amp;A
+          </h3>
+          <span className="text-[11px] text-slate-400">
+            Natural-language interrogation of the underlying model · sources cited in every response
+          </span>
+        </div>
+
+        {/* Coral session header */}
+        <div className="flex items-center justify-between bg-[#d9714f] rounded-t-2xl border-t border-x border-slate-200 px-5 py-2.5 text-white">
+          <span className="flex items-center gap-2 text-[12px] font-semibold tracking-wide">
+            <span className="h-1.5 w-1.5 rounded-full bg-white/90" />
+            Ask Voiant
+          </span>
+          <span className="text-[11px] font-medium text-white/85">Session · {sessionLabel}</span>
+        </div>
       </div>
 
-      {chatHistory.length === 0 ? (
-        <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_1px_2px_rgba(16,24,40,0.04)]">
-          <div className="flex items-center justify-between bg-[#d9714f] px-5 py-2.5 text-white">
-            <span className="flex items-center gap-2 text-[12px] font-semibold tracking-wide">
-              <span className="h-1.5 w-1.5 rounded-full bg-white/90" />
-              Ask Voiant
-            </span>
-            <span className="text-[11px] font-medium text-white/85">Session · {sessionLabel}</span>
-          </div>
-          <div className="space-y-4 p-5 sm:p-6">
-            {loading ? (
-              <div ref={pendingRef} className="scroll-mt-24 space-y-3">
-                <QuestionLine text={pendingQuestion} />
-                <ThinkingIndicator question={pendingQuestion} />
-              </div>
-            ) : (
-              <div className="max-w-xl">
-                <p className="text-[13.5px] font-medium text-navy">Ask a question to begin.</p>
-                <p className="mt-1 text-[12.5px] leading-relaxed text-slate-500">
-                  The matching analysis opens with your answer, complete with reasoning and sources. Follow-up
-                  questions keep the context — ask “why?” or “what about the West?” and it stays on topic.
-                </p>
-              </div>
-            )}
-            <ChatPanel onAsk={onAsk} loading={loading} run={chatRun} />
-          </div>
-        </div>
-      ) : (
-        <div className="flex flex-col">
-          {/* Scrollable thread — content scrolls here, composer stays pinned below */}
-          <div className="max-h-[58vh] space-y-5 overflow-y-auto pr-1.5">
-            {chatHistory.map((turn, i) => {
-              const isLast = i === chatHistory.length - 1;
-              return (
-                <QACard
-                  key={turn.run_id + i}
-                  turn={turn}
-                  isLast={isLast}
-                  showInspect={showInspect}
-                  onToggleInspect={onToggleInspect}
-                  sessionLabel={sessionLabel}
-                  onAsk={onAsk}
-                  loading={loading}
-                  innerRef={isLast ? lastTurnRef : undefined}
-                />
-              );
-            })}
-            {loading && (
-              <div
-                ref={pendingRef}
-                className="scroll-mt-24 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_1px_2px_rgba(16,24,40,0.04)]"
-              >
-                <div className="flex items-center justify-between bg-[#d9714f] px-5 py-2.5 text-white">
-                  <span className="flex items-center gap-2 text-[12px] font-semibold tracking-wide">
-                    <span className="h-1.5 w-1.5 rounded-full bg-white/90" />
-                    Ask Voiant
-                  </span>
-                  <span className="text-[11px] font-medium text-white/85">Session · {sessionLabel}</span>
-                </div>
-                <div className="space-y-3 p-5 sm:p-6">
+      <div className="rounded-b-2xl border-x border-b border-slate-200 bg-white shadow-[0_1px_2px_rgba(16,24,40,0.04)]">
+        <div className="p-5 sm:p-6">
+          {chatHistory.length === 0 ? (
+            <div className="space-y-4">
+              {loading ? (
+                <div ref={pendingRef} className="scroll-mt-24 space-y-3">
                   <QuestionLine text={pendingQuestion} />
-                  <ThinkingIndicator question={pendingQuestion} />
+                  {!classifiedIntent ? (
+                    <div className="card p-5 flex items-center gap-3">
+                      <span className="h-2 w-2 animate-pulse rounded-full bg-slate-400" />
+                      <span className="text-sm text-slate-500 font-medium">Analyzing question...</span>
+                    </div>
+                  ) : classifiedIntent === "general" ? (
+                    <div className="card p-5 flex items-center gap-3">
+                      <span className="h-2 w-2 animate-pulse rounded-full bg-[#d9714f]" />
+                      <span className="text-sm text-slate-500 font-medium">Thinking...</span>
+                    </div>
+                  ) : (
+                    <ThinkingIndicator question={pendingQuestion} />
+                  )}
                 </div>
+              ) : (
+                <div className="max-w-xl">
+                  <p className="text-[13.5px] font-medium text-navy">Ask a question to begin.</p>
+                  <p className="mt-1 text-[12.5px] leading-relaxed text-slate-500">
+                    The matching analysis opens with your answer, complete with reasoning and sources. Follow-up
+                    questions keep the context — ask “why?” or “what about the West?” and it stays on topic.
+                  </p>
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="flex flex-col">
+              {/* Scrollable thread */}
+              <div className="max-h-[58vh] space-y-8 overflow-y-auto pr-1.5">
+                {chatHistory.map((turn, i) => {
+                  const isLast = i === chatHistory.length - 1;
+                  return (
+                    <div key={turn.run_id + i}>
+                      {i > 0 && <hr className="my-6 border-slate-100" />}
+                      <QATurn
+                        turn={turn}
+                        isLast={isLast}
+                        showInspect={showInspect}
+                        onToggleInspect={onToggleInspect}
+                        onAsk={onAsk}
+                        loading={loading}
+                        innerRef={isLast ? lastTurnRef : undefined}
+                      />
+                    </div>
+                  );
+                })}
+                {loading && (
+                  <div ref={pendingRef} className="scroll-mt-24 border-t border-slate-100 pt-6 space-y-3">
+                    <QuestionLine text={pendingQuestion} />
+                    {!classifiedIntent ? (
+                      <div className="p-4 bg-slate-50/50 rounded-xl flex items-center gap-3">
+                        <span className="h-2 w-2 animate-pulse rounded-full bg-slate-400" />
+                        <span className="text-sm text-slate-500 font-medium">Analyzing question...</span>
+                      </div>
+                    ) : classifiedIntent === "general" ? (
+                      <div className="p-4 bg-slate-50/50 rounded-xl flex items-center gap-3">
+                        <span className="h-2 w-2 animate-pulse rounded-full bg-[#d9714f]" />
+                        <span className="text-sm text-slate-500 font-medium">Thinking...</span>
+                      </div>
+                    ) : (
+                      <ThinkingIndicator question={pendingQuestion} />
+                    )}
+                  </div>
+                )}
               </div>
+            </div>
+          )}
+
+          {/* Composer pinned inside the container at the bottom */}
+          <div className="mt-4 border-t border-slate-100 pt-4">
+            {chatHistory.length === 0 ? (
+              <ChatPanel onAsk={onAsk} loading={loading} run={chatRun} />
+            ) : (
+              <ChatPanel onAsk={onAsk} loading={loading} run={chatRun} bare hideChips />
             )}
           </div>
-
-          {/* Composer — pinned below the scrollable thread */}
-          <div className="mt-4 rounded-2xl border border-slate-200 bg-white p-3 shadow-[0_1px_2px_rgba(16,24,40,0.04)]">
-            <ChatPanel onAsk={onAsk} loading={loading} run={chatRun} bare hideChips />
-          </div>
         </div>
-      )}
+      </div>
     </div>
   );
 }

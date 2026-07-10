@@ -285,8 +285,16 @@ export const api = {
   config: () => get<ClientConfig>("/config"),
   reloadConfig: () => post<{ reloaded: boolean; version: number }>("/config/reload", {}),
   updateConfig: (patch: Record<string, unknown>) => post<ClientConfig>("/config/update", patch),
-  chat: (question: string, role: string, sessionId: string | null, allowLlm = true) =>
-    post<AgentRunResponse>("/agents/chat", { question, role, session_id: sessionId, allow_llm: allowLlm }),
+  chat: (question: string, role: string, sessionId: string | null, allowLlm = true, classification?: string) =>
+    post<AgentRunResponse>("/agents/chat", {
+      question,
+      role,
+      session_id: sessionId,
+      allow_llm: allowLlm,
+      classification,
+    }),
+  classify: (question: string, role: string, sessionId: string | null) =>
+    post<{ classification: string }>("/agents/classify", { question, role, session_id: sessionId }),
   connectors: () => get<{ connectors: Array<Record<string, unknown>> }>("/ingest/connectors"),
   territoryEquity: (role: string) =>
     get<AgentRunResponse>(`/dashboards/territory-equity?role=${role}`),

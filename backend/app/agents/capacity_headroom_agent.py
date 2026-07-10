@@ -191,7 +191,26 @@ def _payload(report: CapacityReport) -> dict:
             for r in report.rollups
         ],
         "findings": [{"code": f.code, "message": f.message} for f in report.findings],
-        "redistribution_moves": len(report.redistribution),
+        "overloaded_reps": [
+            {
+                "rep_id": r.rep_id,
+                "segment": r.segment,
+                "region": r.region,
+                "quota": str(r.quota),
+                "load_index": r.load_index,
+            }
+            for r in report.per_rep
+            if r.classification == "Overloaded"
+        ],
+        "redistribution_moves": [
+            {
+                "from_rep": m.from_rep,
+                "to_rep": m.to_rep,
+                "segment": m.segment,
+                "amount": str(m.amount),
+            }
+            for m in report.redistribution
+        ],
         "scenario": report.scenario.model_dump(mode="json") if report.scenario else None,
         "assumptions": [{"statement": a.statement} for a in report.assumptions],
     }
