@@ -42,7 +42,7 @@ export default function ReportHeader({
 
   return (
     <header className="sticky top-0 z-30 border-b border-slate-200 bg-white/95 backdrop-blur">
-      <div className="mx-auto max-w-[1200px] px-5 py-3 sm:px-8">
+      <div className="mx-auto max-w-[1440px] px-5 py-3 sm:px-8">
         <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
           <div className="flex min-w-0 flex-1 items-center gap-3 sm:flex-none">
             <Wordmark />

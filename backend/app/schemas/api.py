@@ -38,6 +38,11 @@ class ChatRequest(BaseModel):
     role: str = "analyst"
     session_id: str | None = None
     allow_llm: bool = True  # False ⇒ deterministic (used to re-mask instantly on role change)
+    classification: str | None = None
+
+
+class ClassifyResponse(BaseModel):
+    classification: str  # "general" | "quota_equity" | "capacity_headroom" | "synthesis"
 
 
 class ExecMetric(BaseModel):

@@ -37,12 +37,20 @@ def _make_ctx(
 def run_agent(
     rt: AppRuntime, question: str, role: str, session_id: str | None = None,
     force_agent: str | None = None, allow_llm: bool = True,
+    classification: str | None = None,
 ) -> AgentRunResponse:
     sid = rt.ensure_session(session_id)
     principal = Principal.for_role(role)
 
     if force_agent:
         plan = orchestrator.Plan("single", [force_agent], "explicit")
+    elif classification:
+        if classification == "general":
+            plan = orchestrator.Plan("general", [], "client-classified")
+        elif classification == "synthesis":
+            plan = orchestrator.Plan("synthesis", ["quota_equity", "capacity_headroom"], "client-classified")
+        else:
+            plan = orchestrator.Plan("single", [classification], "client-classified")
     else:
         plan = orchestrator.plan(
             question, rt.llm, rt.last_agent(sid), rt.session_memory(sid)
@@ -109,9 +117,41 @@ def _run_general(
         narrative = "Got it. Ask me a sales-planning question when you want to run an analysis."
     else:
         narrative = (
-            "Hi. Ask me about quota fairness, capacity headroom, overloaded reps, "
-            "paintbrushed segments, or add/cut headcount scenarios."
+            "I am the Voiant Sales Planning assistant. I can help you with sales-planning "
+            "questions (such as quota fairness, capacity headroom, overloaded reps, "
+            "paintbrushed segments, or add/cut headcount scenarios). Please ask me a sales-related question!"
         )
+
+    # Let the LLM answer general/conversational questions directly if enabled
+    if rt.llm is not None and getattr(rt.llm, "enabled", False):
+        try:
+            import json
+
+            system_prompt = (
+                "You are the Voiant Sales Planning assistant. The user is asking a general, "
+                "conversational, or conceptual planning question (e.g. asking for definitions or "
+                "explanations of terms like territory quota, headroom, paintbrushed segments, etc.).\n\n"
+                "Instructions:\n"
+                "1. If the question is completely off-topic or unrelated to sales planning, business concepts, "
+                "or Voiant capabilities (such as asking about database management systems (DBMS), general coding, "
+                "recipes, weather, general sports, personal plans, general history, etc.), you MUST immediately "
+                "and politely decline to answer. Do NOT validate the query (do NOT say 'Great question!' or 'That's interesting!'), "
+                "do NOT define the off-topic term, and do NOT discuss the off-topic topic at all. Start your response directly with: "
+                "'I am the Voiant Sales Planning assistant. I can only help you with sales-related questions...' and list "
+                "your capabilities (quota fairness, capacity headroom, overloaded reps, paintbrushed segments, what-if headcount changes).\n"
+                "2. If explaining a conceptual sales planning term, define it clearly and briefly in simple business terms.\n"
+                "3. If the question is general chitchat or greetings, answer briefly, professionally, and in a friendly manner.\n"
+                "4. End your response by politely reminding the user that you can run actual analytical calculations "
+                "or scenarios (like checking quota fairness, overloaded reps, or what-if headcount changes) "
+                "if they ask about their team's data."
+            )
+            payload = json.dumps({"user_question": question})
+            res = rt.llm.narrate(payload, f"general:{question}", False, system_prompt)
+            if not res.fell_back and res.text:
+                narrative = res.text
+        except Exception as e:
+            import logging
+            logging.getLogger(__name__).warning("[LLM] general chat generation failed (%s); using fallback", e)
 
     rt.record_turn(sid, question, "general", run_id)
     digest = hashlib.sha256(f"general:{question}".encode()).hexdigest()[:16]

@@ -51,6 +51,7 @@ export default function App() {
   const [chatRun, setChatRun] = useState<AgentRunResponse | null>(null);
   const [chatHistory, setChatHistory] = useState<AgentRunResponse[]>([]); // conversation thread
   const [loading, setLoading] = useState(false);
+  const [classifiedIntent, setClassifiedIntent] = useState<"general" | "agent" | null>(null);
   const [pendingQuestion, setPendingQuestion] = useState("");
   const [showInspect, setShowInspect] = useState(false);
   const sessionRef = useRef<string | null>(null);
@@ -162,9 +163,22 @@ export default function App() {
     setMode("ask");
     setPendingQuestion(question);
     setLoading(true);
+    setClassifiedIntent(null);
     setError(null);
     try {
-      const res = await api.chat(question, role, sessionRef.current);
+      // Stage 1: Classify intent semantically
+      let classification = "general";
+      try {
+        const classRes = await api.classify(question, role, sessionRef.current);
+        classification = classRes.classification;
+        setClassifiedIntent(classification === "general" ? "general" : "agent");
+      } catch {
+        // Fallback to agent pipeline if classification endpoint errors out
+        setClassifiedIntent("agent");
+      }
+
+      // Stage 2: Execute agent calculation / conceptual response
+      const res = await api.chat(question, role, sessionRef.current, true, classification);
       sessionRef.current = res.session_id;
       setChatRun(res);
       setChatHistory((h) => [...h, res]); // keep the full conversation thread
@@ -209,7 +223,7 @@ export default function App() {
       />
 
       <main className="min-w-0 flex-1">
-        <div className="mx-auto max-w-[1200px] px-5 sm:px-8">
+        <div className="mx-auto max-w-[1440px] px-5 sm:px-8">
           <ReportMasthead
             health={health}
             rulesetsCount={config?.interpretation_rules?.length}
@@ -257,7 +271,7 @@ export default function App() {
             ) : mode === "platform" ? (
               <BehindTheScenes role={role} />
             ) : (
-              <div className="mx-auto w-full max-w-4xl">
+              <div className="mx-auto w-full">
                 <AnalyticalQA
                   chatHistory={chatHistory}
                   loading={loading}
@@ -268,6 +282,7 @@ export default function App() {
                   onToggleInspect={() => setShowInspect((s) => !s)}
                   lastTurnRef={lastTurnRef}
                   pendingRef={pendingRef}
+                  classifiedIntent={classifiedIntent}
                 />
               </div>
             )}
@@ -276,17 +291,17 @@ export default function App() {
       </main>
 
       <footer className="border-t border-slate-200 bg-white">
-        <div className="mx-auto flex max-w-[1200px] flex-wrap items-center justify-between gap-2 px-5 py-4 text-[11px] text-slate-400 sm:px-8">
-          <span>
-            <span className="font-semibold tracking-wide text-brand-dark">VOIANT</span>
-            <span className="mx-2 text-slate-300">·</span>
-            Sales Planning Intelligence
-            <span className="mx-2 text-slate-300">·</span>
-            Preview build v0.4
+        <div className="mx-auto flex max-w-[1440px] flex-wrap items-center justify-between gap-2 px-5 py-4 text-[11px] text-slate-400 sm:px-8">
+          <span className="flex items-center gap-x-2">
+            <img src="/image.png" alt="Voiant" className="w-auto" style={{ height: "24px" }} />
+            <span className="text-slate-300">·</span>
+            <span>Sales Planning Intelligence</span>
+            <span className="text-slate-300">·</span>
+            <span>Preview build v0.4</span>
           </span>
           <span className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
-            <span>
-              Delivered by <span className="font-semibold text-navy">Brightcone</span>
+            <span className="flex items-center gap-x-1.5">
+              Delivered by <img src="/brightcone-wordmark.webp" alt="Brightcone" className="w-auto" style={{ height: "16px" }} />
             </span>
             <span className="text-slate-300">·</span>
             <span>Two-tier secure ingestion</span>
