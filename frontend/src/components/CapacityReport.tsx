@@ -4,9 +4,9 @@ import { Avatar, Sparkline, spark } from "./Shared";
 
 // Mockup band colors: over-loaded red, balanced blue, under-loaded gold.
 const BAND: Record<string, { color: string; label: string; badge: string }> = {
-  Overloaded: { color: "#EF4444", label: "Over-loaded > 120%", badge: "bg-red-50 text-red-700 border-red-100" },
-  Balanced: { color: "#3B82F6", label: "Balanced 80–120%", badge: "bg-blue-50 text-blue-700 border-blue-100" },
-  Underloaded: { color: "#CA8A04", label: "Under-loaded < 80%", badge: "bg-amber-50 text-amber-800 border-amber-100" },
+  Overloaded: { color: "#b8524d", label: "Over-loaded > 120%", badge: "bg-red-50 text-red-700 border-red-100" },
+  Balanced: { color: "#3b75c4", label: "Balanced 80–120%", badge: "bg-blue-50 text-blue-700 border-blue-100" },
+  Underloaded: { color: "#b8963e", label: "Under-loaded < 80%", badge: "bg-amber-50 text-amber-800 border-amber-100" },
 };
 
 function bandOf(r: RepLoad): "Overloaded" | "Balanced" | "Underloaded" {
@@ -61,40 +61,40 @@ export default function CapacityReport({ report }: { report: CapacityReport }) {
   return (
     <div className="space-y-8 pb-4">
       {/* § 03 headline */}
-      <section className="grid grid-cols-1 gap-5 lg:grid-cols-[2.3fr_1fr]">
-        <div className="rounded-2xl border border-slate-200 bg-white p-6">
-          <div className="flex items-center gap-3 text-[10.5px] font-semibold uppercase tracking-[0.14em] text-slate-400">
+      <section className="grid grid-cols-1 overflow-hidden rounded-xl border border-slate-200 bg-white lg:grid-cols-[1fr_300px]">
+        <div className="p-6 md:p-8 lg:pr-12">
+          <div className="flex items-center gap-3 text-[10.5px] font-semibold uppercase tracking-[0.14em] text-[#3b75c4]">
             Capacity Analysis
-            <span className="rounded bg-slate-100 px-1.5 py-0.5 font-mono text-[10px] text-slate-500">§ 03</span>
+            <span className="rounded bg-[#edf4fc] px-2 py-0.5 font-mono text-[10px] font-semibold text-[#3b75c4]">§ 03</span>
           </div>
-          <h2 className="mt-3 font-display text-[22px] font-semibold leading-snug tracking-tight text-navy">
+          <h2 className="mt-3 font-display text-[22px] font-semibold leading-snug tracking-tight text-navy max-w-2xl">
             Team-wide capacity is being masked by imbalance: {report.overloaded} reps carrying &gt;120% of baseline
             while {report.underloaded} sit below 80% — {fmtMoney(reclaimable)} of headroom is redistributable.
           </h2>
-          <p className="mt-3 text-[13.5px] leading-relaxed text-slate-500">
+          <p className="mt-3 text-[13.5px] leading-relaxed text-slate-500 max-w-2xl">
             Over-loaded reps show pipeline coverage below the segment median, suggesting the excess quota is not being
             met with proportionate opportunity. Modeled account moves land the affected reps back inside the 80–120%
             band with no impact to company target coverage. Full detail in § 03.3.
           </p>
         </div>
 
-        <div className="flex flex-col rounded-2xl bg-gradient-to-br from-[#33518f] to-[#3f5fa1] p-6 text-white">
+        <div className="flex flex-col justify-between bg-[#2d5793] p-6 md:p-8 text-white">
           <div>
-            <div className="text-[10.5px] font-semibold uppercase tracking-[0.14em] text-white/55">
+            <div className="text-[10.5px] font-semibold uppercase tracking-[0.14em] text-white/70">
               Reclaimable Headroom
             </div>
             <div className="mt-4 font-display text-[44px] font-extrabold leading-none tracking-tight text-white">
               {fmtMoney(reclaimable)}
             </div>
-            <p className="mt-2 text-[12.5px] leading-relaxed text-white/60">
+            <p className="mt-2 text-[12.5px] leading-relaxed text-white/70">
               If all reps rebalanced to the fair band ({report.team_additional_capacity_pct.toFixed(1)}% of deployed
               quota).
             </p>
           </div>
-          <p className="mt-auto pt-8 text-[11.5px] leading-relaxed text-white/45">
+          <div className="mt-6 border-t border-white/20 pt-4 text-[11.5px] leading-relaxed text-white/60">
             Modeled redistribution (§ 03.3) reallocates {fmtMoney(totalReallocated)} across{" "}
             {report.redistribution.length} moves without raising individual OTE exposure.
-          </p>
+          </div>
         </div>
       </section>
 
@@ -116,30 +116,28 @@ export default function CapacityReport({ report }: { report: CapacityReport }) {
             hint="80–120%"
             value={String(report.balanced)}
             caption={`${teamBalancedPct}% of the sales team`}
-            accent="#3B82F6"
+            accent="#4ca875"
           />
           <DistCard
             label="Over Loaded"
             hint="> 120%"
             value={String(report.overloaded)}
-            caption="Carrying above the sustainable ceiling"
-            accent="#EF4444"
-            flagged
+            caption="Structural — not seasonal"
+            accent="#e26a6a"
           />
           <DistCard
             label="Under Loaded"
             hint="< 80%"
             value={String(report.underloaded)}
             caption="Available capacity to absorb"
-            accent="#CA8A04"
-            flagged
+            accent="#cca043"
           />
           <DistCard
             label="Reclaimable"
             hint={`${fy} model`}
             value={fmtMoney(reclaimable)}
             caption="Headroom if redistributed"
-            accent="#34B7AD"
+            accent="#5c8bc8"
           />
         </div>
       </section>
@@ -181,7 +179,7 @@ export default function CapacityReport({ report }: { report: CapacityReport }) {
               const dir = dev >= 0 ? "up" : "down";
               return (
                 <div key={r.rep_id} className="flex items-center gap-3 rounded-lg px-1.5 py-1.5 hover:bg-slate-50">
-                  <Avatar name={r.display_name} />
+                  <Avatar name={r.display_name} color={color} />
                   <div className="w-40 shrink-0">
                     <div className="truncate text-[12.5px] font-medium text-navy" title={r.display_name}>
                       {r.display_name}
@@ -266,17 +264,21 @@ export default function CapacityReport({ report }: { report: CapacityReport }) {
                   const srcNew = src ? (parseFloat(src.quota) - amt) / parseFloat(src.baseline) : 0;
                   const dstWas = dst?.load_index ?? 0;
                   const dstNew = dst ? (parseFloat(dst.quota) + amt) / parseFloat(dst.baseline) : 0;
+                  const srcBand = src ? bandOf(src) : "Balanced";
+                  const dstBand = dst ? bandOf(dst) : "Balanced";
+                  const srcColor = BAND[srcBand].color;
+                  const dstColor = BAND[dstBand].color;
                   return (
                     <tr key={i} className="border-b border-slate-100 align-middle last:border-0">
                       <td className="py-3 pl-4 pr-3">
                         <div className="flex items-center gap-2.5">
-                          <Avatar name={src?.display_name ?? m.from_rep} />
+                          <Avatar name={src?.display_name ?? m.from_rep} color={srcColor} />
                           <span className="font-medium text-navy">{src?.display_name ?? m.from_rep}</span>
                         </div>
                       </td>
                       <td className="py-3 pr-3">
                         <div className="flex items-center gap-2.5">
-                          <Avatar name={dst?.display_name ?? m.to_rep} />
+                          <Avatar name={dst?.display_name ?? m.to_rep} color={dstColor} />
                           <span className="font-medium text-navy">{dst?.display_name ?? m.to_rep}</span>
                         </div>
                       </td>
@@ -337,34 +339,40 @@ function DistCard({
   value,
   caption,
   accent,
-  flagged,
+  pill,
+  pillColorCls,
 }: {
   label: string;
   hint: string;
   value: string;
   caption: string;
   accent: string;
+  pill?: string;
+  pillColorCls?: string;
   flagged?: boolean;
 }) {
   return (
     <div
-      className={`flex-1 basis-[210px] rounded-xl border px-4 py-3.5 ${
-        flagged ? "border-flag-border bg-flag-bg" : "border-slate-200 bg-white"
-      }`}
+      className="flex-1 basis-[210px] rounded-xl border border-slate-200 bg-white p-4 shadow-sm transition-all duration-150 hover:shadow-md"
+      style={{ borderTopWidth: "4px", borderTopColor: accent }}
     >
       <div className="flex items-center justify-between gap-2">
-        <span className="text-[10px] font-semibold uppercase tracking-[0.1em] text-slate-400">{label}</span>
-        <span className="rounded bg-slate-100 px-1.5 py-0.5 text-[9.5px] font-semibold uppercase tracking-wide text-slate-500">
+        <span className="text-[10px] font-bold uppercase tracking-[0.1em] text-slate-400">{label}</span>
+        <span className="rounded bg-slate-100 px-1.5 py-0.5 text-[9.5px] font-bold uppercase tracking-wide text-slate-500">
           {hint}
         </span>
       </div>
-      <div className="mt-1.5 flex items-baseline gap-2">
-        <span className="h-2 w-2 rounded-full" style={{ background: accent }} />
-        <span className="font-display text-[26px] font-extrabold leading-none tracking-tight tabular-nums text-navy">
-          {value}
-        </span>
+      <div className="mt-2 font-display text-[28px] font-extrabold leading-none tracking-tight text-[#1e293b] tabular-nums">
+        {value}
       </div>
-      <div className="mt-1.5 text-[10.5px] leading-snug text-slate-400">{caption}</div>
+      <div className="mt-2 flex items-baseline justify-between gap-2 min-h-[20px]">
+        <span className="text-[11px] text-slate-400 truncate">{caption}</span>
+        {pill && (
+          <span className={`shrink-0 rounded px-1.5 py-0.5 text-[10px] font-bold ${pillColorCls}`}>
+            {pill}
+          </span>
+        )}
+      </div>
     </div>
   );
 }

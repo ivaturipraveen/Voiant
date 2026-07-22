@@ -121,8 +121,8 @@ export default function TerritoryReport({ report }: { report: QuotaEquityReport 
 
   const headlineTitle = paintSeg
     ? `${paintSeg.segment} is uniformly paintbrushed at ${fmtMoney(
-        parseFloat(paintSeg.deployed_quota) / paintSeg.rep_count
-      )} despite varying pipeline coverage — the single largest source of quota inequity in the plan.`
+      parseFloat(paintSeg.deployed_quota) / paintSeg.rep_count
+    )} despite varying pipeline coverage — the single largest source of quota inequity in the plan.`
     : headlineFinding?.message ?? "Territory and quota fairness review across segments and regions.";
 
   const totalDeployed = parseFloat(report.deployed_quota);
@@ -162,38 +162,40 @@ export default function TerritoryReport({ report }: { report: QuotaEquityReport 
   return (
     <div className="space-y-8 pb-4">
       {/* § 02 headline */}
-      <section className="grid grid-cols-1 gap-5 lg:grid-cols-[2.3fr_1fr]">
-        <div className="rounded-2xl border border-slate-200 bg-white p-6">
-          <div className="flex items-center gap-3 text-[10.5px] font-semibold uppercase tracking-[0.14em] text-slate-400">
+      <section className="grid grid-cols-1 overflow-hidden rounded-xl border border-slate-200 bg-white lg:grid-cols-[1fr_300px]">
+        <div className="p-6 md:p-8 lg:pr-12">
+          <div className="flex items-center gap-3 text-[10.5px] font-semibold uppercase tracking-[0.14em] text-[#3b75c4]">
             Territory Analysis
-            <span className="rounded bg-slate-100 px-1.5 py-0.5 font-mono text-[10px] text-slate-500">§ 02</span>
+            <span className="rounded bg-[#edf4fc] px-2 py-0.5 font-mono text-[10px] font-semibold text-[#3b75c4]">§ 02</span>
           </div>
-          <h2 className="mt-3 font-display text-[22px] font-semibold leading-snug tracking-tight text-navy">{headlineTitle}</h2>
-          <p className="mt-3 text-[13.5px] leading-relaxed text-slate-500">
+          <h2 className="mt-3 font-display text-[22px] font-semibold leading-snug tracking-tight text-navy max-w-2xl">
+            {headlineTitle}
+          </h2>
+          <p className="mt-3 text-[13.5px] leading-relaxed text-slate-500 max-w-2xl">
             {headlineFinding?.message}{" "}
             {report.findings.find((f) => f.code.includes("DEPLOYED"))?.message ?? ""}
           </p>
         </div>
 
-        <div className="flex flex-col rounded-2xl bg-gradient-to-br from-[#33518f] to-[#3f5fa1] p-6 text-white">
+        <div className="flex flex-col justify-between bg-[#2d5793] p-6 md:p-8 text-white">
           <div>
-            <div className="text-[10.5px] font-semibold uppercase tracking-[0.14em] text-white/55">
+            <div className="text-[10.5px] font-semibold uppercase tracking-[0.14em] text-white/70">
               Segment Fairness Range
             </div>
             <div className="mt-4 font-display text-[40px] font-extrabold leading-none tracking-tight text-white">
               {fmtRatio(minRatio)} — {fmtRatio(maxRatio)}
             </div>
-            <p className="mt-2 text-[12.5px] leading-relaxed text-white/60">
+            <p className="mt-2 text-[12.5px] leading-relaxed text-white/70">
               {idealRange
                 ? `Ideal is ${fmtRatio(idealRange.low)} – ${fmtRatio(idealRange.high)} across all cells`
                 : "Ideal range follows the Equitable fairness band in config"}
             </p>
           </div>
-          <p className="mt-auto pt-8 text-[11.5px] leading-relaxed text-white/45">
+          <div className="mt-6 border-t border-white/20 pt-4 text-[11.5px] leading-relaxed text-white/60">
             {flaggedReps.length} of {report.rep_count} reps outside the fair-assignment band.
             {paintSeg &&
               ` ${paintSeg.rep_count} reps in the ${paintSeg.segment} segment share a single paintbrushed quota.`}
-          </p>
+          </div>
         </div>
       </section>
 
@@ -321,7 +323,7 @@ export default function TerritoryReport({ report }: { report: QuotaEquityReport 
                 const g = BAND_META[band];
                 return (
                   <GroupRows key={band} title={`${g.title} · ${reps.length} rep${reps.length === 1 ? "" : "s"}`}>
-                    {reps.slice(0, 8).map((r) => (
+                    {reps.map((r) => (
                       <RepRow key={r.rep_id} rep={r} badgeCls={g.badgeCls} />
                     ))}
                   </GroupRows>
@@ -334,52 +336,51 @@ export default function TerritoryReport({ report }: { report: QuotaEquityReport 
                 const paintMedian = paintReps[0]?.segment_median_ratio ?? 1;
                 const paintDir = paintAvg < paintMedian ? "down" : "up";
                 return (
-                <GroupRows
-                  title={`Paintbrush — uniform quota within segment despite variance in coverage · ${paintSeg.rep_count} reps · segment-wide`}
-                >
-                  <tr className="border-b border-slate-100 align-middle">
-                    <td className="py-3 pl-4 pr-3">
-                      <div className="flex items-center gap-2.5">
-                        <Avatar name={paintSeg.segment} />
-                        <div>
-                          <div className="font-medium text-navy">{paintSeg.segment} segment</div>
-                          <div className="text-[11px] text-slate-400">
-                            {paintSeg.rep_count} reps · all regions
+                  <GroupRows
+                    title={`Paintbrush — uniform quota within segment despite variance in coverage · ${paintSeg.rep_count} reps · segment-wide`}
+                  >
+                    <tr className="border-b border-slate-100 align-middle">
+                      <td className="py-3 pl-4 pr-3">
+                        <div className="flex items-center gap-2.5">
+                          <Avatar name={paintSeg.segment} />
+                          <div>
+                            <div className="font-medium text-navy">{paintSeg.segment} segment</div>
+                            <div className="text-[11px] text-slate-400">
+                              {paintSeg.rep_count} reps · all regions
+                            </div>
                           </div>
                         </div>
-                      </div>
-                    </td>
-                    <td className="py-3 pr-3 text-slate-600">{paintSeg.segment}</td>
-                    <td className="py-3 pr-3 text-slate-500">All regions</td>
-                    <td className="py-3 pr-3 font-semibold tabular-nums text-navy">
-                      {fmtMoney(parseFloat(paintSeg.deployed_quota) / paintSeg.rep_count)} each
-                    </td>
-                    <td className="py-3 pr-3 tabular-nums text-slate-500">
-                      {fmtMoney(parseFloat(paintSeg.total_pipeline) / paintSeg.rep_count)} avg
-                    </td>
-                    <td className="py-3 pr-3">
-                      <span
-                        className={`inline-flex items-center gap-1 font-semibold tabular-nums ${
-                          paintDir === "down" ? "text-red-600" : "text-flag-text"
-                        }`}
-                      >
-                        {paintDir === "down" ? "▼" : "▲"} {fmtRatio(paintAvg)} avg
-                      </span>
-                    </td>
-                    <td className="py-3 pr-3">
-                      <span className="rounded border border-orange-200 bg-orange-50 px-2 py-0.5 text-[10.5px] font-bold uppercase tracking-wide text-orange-800">
-                        Paintbrush
-                      </span>
-                    </td>
-                    <td className="py-3 pr-4">
-                      <Sparkline
-                        data={segmentAvgTrend(paintReps)}
-                        color={paintDir === "down" ? "#EF4444" : "#B7791F"}
-                        className="h-5 w-20"
-                      />
-                    </td>
-                  </tr>
-                </GroupRows>
+                      </td>
+                      <td className="py-3 pr-3 text-slate-600">{paintSeg.segment}</td>
+                      <td className="py-3 pr-3 text-slate-500">All regions</td>
+                      <td className="py-3 pr-3 font-semibold tabular-nums text-navy">
+                        {fmtMoney(parseFloat(paintSeg.deployed_quota) / paintSeg.rep_count)} each
+                      </td>
+                      <td className="py-3 pr-3 tabular-nums text-slate-500">
+                        {fmtMoney(parseFloat(paintSeg.total_pipeline) / paintSeg.rep_count)} avg
+                      </td>
+                      <td className="py-3 pr-3">
+                        <span
+                          className={`inline-flex items-center gap-1 font-semibold tabular-nums ${paintDir === "down" ? "text-red-600" : "text-flag-text"
+                            }`}
+                        >
+                          {paintDir === "down" ? "▼" : "▲"} {fmtRatio(paintAvg)} avg
+                        </span>
+                      </td>
+                      <td className="py-3 pr-3">
+                        <span className="rounded border border-orange-200 bg-orange-50 px-2 py-0.5 text-[10.5px] font-bold uppercase tracking-wide text-orange-800">
+                          Paintbrush
+                        </span>
+                      </td>
+                      <td className="py-3 pr-4">
+                        <Sparkline
+                          data={segmentAvgTrend(paintReps)}
+                          color={paintDir === "down" ? "#EF4444" : "#B7791F"}
+                          className="h-5 w-20"
+                        />
+                      </td>
+                    </tr>
+                  </GroupRows>
                 );
               })()}
             </tbody>
@@ -499,9 +500,8 @@ function RepRow({
       <td className="py-3 pr-3 tabular-nums text-slate-600">{fmtMoney(rep.opportunity)}</td>
       <td className="py-3 pr-3">
         <span
-          className={`inline-flex items-center gap-1 font-semibold tabular-nums ${
-            dir === "down" ? "text-red-600" : "text-flag-text"
-          }`}
+          className={`inline-flex items-center gap-1 font-semibold tabular-nums ${dir === "down" ? "text-red-600" : "text-flag-text"
+            }`}
         >
           {dir === "down" ? "▼" : "▲"} {fmtRatio(rep.fairness_ratio)}
         </span>

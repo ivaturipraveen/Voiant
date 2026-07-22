@@ -66,39 +66,39 @@ export default function RecommendationsReport({ role }: { role: string }) {
   return (
     <div className="space-y-8 pb-4">
       {/* § 04 headline */}
-      <section className="grid grid-cols-1 gap-5 lg:grid-cols-[2.3fr_1fr]">
-        <div className="rounded-2xl border border-slate-200 bg-white p-6">
-          <div className="flex items-center gap-3 text-[10.5px] font-semibold uppercase tracking-[0.14em] text-slate-400">
+      <section className="grid grid-cols-1 overflow-hidden rounded-xl border border-slate-200 bg-white lg:grid-cols-[1fr_300px]">
+        <div className="p-6 md:p-8 lg:pr-12">
+          <div className="flex items-center gap-3 text-[10.5px] font-semibold uppercase tracking-[0.14em] text-[#3b75c4]">
             Recommendations
-            <span className="rounded bg-slate-100 px-1.5 py-0.5 font-mono text-[10px] text-slate-500">§ 04</span>
+            <span className="rounded bg-[#edf4fc] px-2 py-0.5 font-mono text-[10px] font-semibold text-[#3b75c4]">§ 04</span>
           </div>
-          <h2 className="mt-3 font-display text-[22px] font-semibold leading-snug tracking-tight text-navy">
+          <h2 className="mt-3 font-display text-[22px] font-semibold leading-snug tracking-tight text-navy max-w-2xl">
             <span className="capitalize">{numberToWords(recs.length)}</span> intervention
             {recs.length === 1 ? "" : "s"} can restore fairness across the {fy} plan and reclaim{" "}
             {fmtMoney(data.aggregate_impact)} in addressable impact.
           </h2>
-          <p className="mt-3 text-[13.5px] leading-relaxed text-slate-500">
+          <p className="mt-3 text-[13.5px] leading-relaxed text-slate-500 max-w-2xl">
             Recommendations are ranked by expected impact and require {roleName}'s approval for enactment.
             {paintSeg && ` HR alignment is required for the ${paintSeg} re-tiering.`} Full assumptions and
             limitations are set out in § 04.2.
           </p>
         </div>
 
-        <div className="flex flex-col rounded-2xl bg-gradient-to-br from-[#33518f] to-[#3f5fa1] p-6 text-white">
+        <div className="flex flex-col justify-between bg-[#2d5793] p-6 md:p-8 text-white">
           <div>
-            <div className="text-[10.5px] font-semibold uppercase tracking-[0.14em] text-white/55">Aggregate Impact</div>
+            <div className="text-[10.5px] font-semibold uppercase tracking-[0.14em] text-white/70">Aggregate Impact</div>
             <div className="mt-4 font-display text-[44px] font-extrabold leading-none tracking-tight text-white">
               {fmtMoney(data.aggregate_impact)}
             </div>
-            <p className="mt-2 text-[12.5px] leading-relaxed text-white/60">
+            <p className="mt-2 text-[12.5px] leading-relaxed text-white/70">
               Addressable across {numberToWords(recs.length)} recommendation{recs.length === 1 ? "" : "s"}.
             </p>
           </div>
-          <p className="mt-auto pt-8 text-[11.5px] leading-relaxed text-white/45">
+          <div className="mt-6 border-t border-white/20 pt-4 text-[11.5px] leading-relaxed text-white/60">
             {data.has_redistribution
               ? "The redistribution is executable in days with no HR involvement; re-segmentation requires HR alignment first."
               : "Effort and timeline are planning estimates; enactment requires owner approval."}
-          </p>
+          </div>
         </div>
       </section>
 

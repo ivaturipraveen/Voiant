@@ -19,7 +19,7 @@ export const CHART_TOOLTIP = {
 
 // A small, monochrome initials chip for a rep — quiet visual anchor for people/demographic
 // rows. Works with masked names too (initials from "L. R.", a dot for a fully-redacted name).
-export function Avatar({ name }: { name: string }) {
+export function Avatar({ name, color }: { name: string; color?: string }) {
   const initials =
     name
       .trim()
@@ -29,6 +29,18 @@ export function Avatar({ name }: { name: string }) {
       .slice(0, 2)
       .join("")
       .toUpperCase() || "•";
+
+  if (color) {
+    return (
+      <span
+        className="grid h-6 w-6 shrink-0 place-items-center rounded-full font-display text-[10px] font-semibold text-white"
+        style={{ backgroundColor: color }}
+      >
+        {initials}
+      </span>
+    );
+  }
+
   return (
     <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-slate-100 font-display text-[10px] font-semibold text-slatebody ring-1 ring-inset ring-slate-200">
       {initials}
@@ -138,26 +150,50 @@ export function Sparkline({
   data,
   color = "#94A3B8",
   className = "h-7 w-full",
+  fill = false,
+  showEndDot,
 }: {
   data: number[];
   color?: string;
   className?: string;
+  fill?: boolean;
+  showEndDot?: boolean;
 }) {
+  const drawEndDot = showEndDot ?? !fill;
   const w = 100;
   const h = 28;
   const min = Math.min(...data);
   const max = Math.max(...data);
   const span = max - min || 1;
-  const pts = data
-    .map((v, i) => {
-      const x = (i / (data.length - 1)) * w;
-      const y = h - ((v - min) / span) * (h - 4) - 2;
-      return `${x.toFixed(1)},${y.toFixed(1)}`;
-    })
-    .join(" ");
+  const points = data.map((v, i) => {
+    const x = (i / (data.length - 1)) * (w - (drawEndDot ? 4 : 0));
+    const y = h - ((v - min) / span) * (h - 6) - 3;
+    return { x, y };
+  });
+  const pts = points.map((p) => `${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(" ");
+  const areaPts = `0,${h} ${pts} ${w},${h}`;
+  const lastPt = points[points.length - 1];
+  const prevPt = points[points.length - 2] || points[0];
+  const dx = lastPt.x - prevPt.x;
+  const dy = lastPt.y - prevPt.y;
+  const angleDeg = (Math.atan2(dy, dx) * 180) / Math.PI;
+
   return (
     <svg viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="none" className={className} aria-hidden>
-      <polyline points={pts} fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      {fill && <polygon points={areaPts} fill={color} fillOpacity={0.08} />}
+      <polyline
+        points={pts}
+        fill="none"
+        stroke={color}
+        strokeWidth={fill ? "1.5" : "1.75"}
+        strokeLinecap={drawEndDot ? "butt" : "round"}
+        strokeLinejoin="round"
+      />
+      {drawEndDot && lastPt && (
+        <g transform={`translate(${lastPt.x}, ${lastPt.y}) rotate(${angleDeg})`}>
+          <path d="M 0,-3.5 A 3.5 3.5 0 0 0 0,3.5 Z" fill={color} />
+        </g>
+      )}
     </svg>
   );
 }

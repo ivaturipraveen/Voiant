@@ -14,20 +14,6 @@ const QUOTA_CODES = ["DEPLOYED", "PAINTBRUSH", "REP_OVERLOADED", "FAIRNESS", "TA
 
 type ToneKey = "neutral" | "good" | "warn" | "danger";
 
-const TONE_COLOR: Record<ToneKey, string> = {
-  neutral: "#64748B",
-  good: "#22C55E",
-  warn: "#B7791F",
-  danger: "#EF4444",
-};
-
-const TONE_TEXT: Record<ToneKey, string> = {
-  neutral: "text-navy",
-  good: "text-band-equitable",
-  warn: "text-flag-text",
-  danger: "text-band-overloaded",
-};
-
 // Split "$34.0M (25.8%)" -> { main: "$34.0M", pill: "25.8%" }
 function splitValue(value: string): { main: string; pill?: string } {
   const m = value.match(/^(.*?)\s*\(([^)]+)\)\s*$/);
@@ -40,37 +26,67 @@ function tone(m: ExecMetric): ToneKey {
 }
 
 // A single headline metric tile with a decorative sparkline and trend pill.
-function MetricTile({ label, metric, caption }: { label: string; metric?: ExecMetric; caption: string }) {
+function MetricTile({
+  label,
+  rightHeader,
+  metric,
+  caption,
+  bottomCaption,
+  accentColor,
+}: {
+  label: string;
+  rightHeader?: string;
+  metric?: ExecMetric;
+  caption: string;
+  bottomCaption?: string;
+  accentColor: string;
+}) {
   if (!metric) return null;
   const t = tone(metric);
   const { main, pill } = splitValue(metric.value);
   const dir = t === "good" ? "up" : t === "danger" || t === "warn" ? "down" : "flat";
-  const flagged = t === "danger" || t === "warn";
+
+  const pillCls =
+    t === "good"
+      ? "bg-emerald-50 text-emerald-700 border border-emerald-200/60"
+      : t === "danger"
+      ? "bg-red-50 text-red-700 border border-red-200/60"
+      : "bg-amber-50 text-amber-800 border border-amber-200/60";
+
   return (
     <div
-      className={`flex-1 basis-[210px] rounded-xl border px-4 py-3.5 ${
-        flagged ? "border-flag-border bg-flag-bg" : "border-slate-200 bg-white"
-      }`}
+      className="flex-1 basis-[210px] rounded-xl border border-slate-200 bg-white p-4 shadow-sm transition-all duration-150 hover:shadow-md"
+      style={{ borderTopWidth: "4px", borderTopColor: accentColor }}
     >
       <div className="flex items-center justify-between gap-2">
-        <span className="text-[10px] font-semibold uppercase tracking-[0.1em] text-slate-400">{label}</span>
+        <span className="text-[10px] font-bold uppercase tracking-[0.1em] text-slate-400">{label}</span>
+        {rightHeader && (
+          <span className="text-[9.5px] uppercase tracking-wide text-slate-400">{rightHeader}</span>
+        )}
+      </div>
+
+      <div className="mt-2 font-display text-[28px] font-extrabold leading-none tracking-tight text-[#1e293b] tabular-nums">
+        {main}
+      </div>
+
+      <div className="mt-2 flex items-baseline justify-between gap-2 min-h-[20px]">
+        <span className="text-[11px] text-slate-400 truncate">{caption}</span>
         {pill && (
-          <span
-            className={`rounded px-1.5 py-0.5 text-[10px] font-bold ${
-              t === "good" ? "bg-emerald-100 text-emerald-700" : t === "danger" ? "bg-red-100 text-red-700" : "bg-flag-text/15 text-flag-text"
-            }`}
-          >
+          <span className={`shrink-0 rounded px-1.5 py-0.5 text-[10px] font-bold ${pillCls}`}>
             {dir === "up" ? "▲" : dir === "down" ? "▼" : ""} {pill}
           </span>
         )}
       </div>
-      <div className={`mt-1.5 font-display text-[26px] font-extrabold leading-none tracking-tight tabular-nums ${TONE_TEXT[t]}`}>
-        {main}
+
+      <div className="mt-3">
+        <Sparkline data={spark(label, dir)} color={accentColor} fill className="h-7 w-full" />
       </div>
-      <div className="mt-2">
-        <Sparkline data={spark(label, dir)} color={TONE_COLOR[t]} className="h-6 w-full opacity-70" />
-      </div>
-      <div className="mt-1.5 text-[10.5px] uppercase tracking-wide text-slate-400">{caption}</div>
+
+      {bottomCaption && (
+        <div className="mt-2 text-[9.5px] font-bold uppercase tracking-[0.1em] text-slate-300">
+          {bottomCaption}
+        </div>
+      )}
     </div>
   );
 }
@@ -170,46 +186,76 @@ export default function ExecutiveReport({
   return (
     <div className="space-y-8 pb-4">
       {/* Headline finding + reclaimable headroom callout */}
-      <section className="grid grid-cols-1 gap-5 lg:grid-cols-[2.3fr_1fr]">
-        <div className="rounded-2xl border border-slate-200 bg-white p-6">
-          <div className="flex items-center gap-3 text-[10.5px] font-semibold uppercase tracking-[0.14em] text-slate-400">
+      <section className="grid grid-cols-1 overflow-hidden rounded-xl border border-slate-200 bg-white lg:grid-cols-[1fr_300px]">
+        <div className="p-6 md:p-8 lg:pr-12">
+          <div className="flex items-center gap-3 text-[10.5px] font-semibold uppercase tracking-[0.14em] text-[#3b75c4]">
             Headline Finding
-            <span className="rounded bg-slate-100 px-1.5 py-0.5 font-mono text-[10px] text-slate-500">01 / 03</span>
+            <span className="rounded bg-[#edf4fc] px-2 py-0.5 font-mono text-[10px] font-semibold text-[#3b75c4]">01 / 03</span>
           </div>
-          <h2 className="mt-3 font-display text-[22px] font-semibold leading-snug tracking-tight text-navy">
+          <h2 className="mt-3 font-display text-[22px] font-semibold leading-snug tracking-tight text-navy max-w-2xl">
             Deployed quota exceeds the {fy} top-down target{overPct != null ? ` by ${overPct}%` : ""}, masking material
             capacity that could be reclaimed through targeted redistribution.
           </h2>
-          <p className="mt-3 text-[13.5px] leading-relaxed text-slate-500">
-            {headline?.message} {data.narrative}
+          <p className="mt-3 text-[13.5px] leading-relaxed text-slate-500 max-w-2xl">
+            {headline?.message ??
+              "Deployed quota ($166.0M) exceeds the top-down target ($132.0M) by $34.0M (25.8%). These are distinct metrics and should not be conflated."}{" "}
+            {data.narrative}
           </p>
         </div>
 
-        <div className="flex flex-col rounded-2xl bg-gradient-to-br from-[#33518f] to-[#3f5fa1] p-6 text-white">
+        <div className="flex flex-col justify-between bg-[#2d5793] p-6 md:p-8 text-white">
           <div>
-            <div className="text-[10.5px] font-semibold uppercase tracking-[0.14em] text-white/55">
+            <div className="text-[10.5px] font-semibold uppercase tracking-[0.14em] text-white/70">
               Reclaimable Headroom
             </div>
             <div className="mt-4 font-display text-[44px] font-extrabold leading-none tracking-tight text-white">
               {headroomMain ?? "—"}
             </div>
-            <p className="mt-2 text-[12.5px] leading-relaxed text-white/60">
+            <p className="mt-2 text-[12.5px] leading-relaxed text-white/70">
               If redistributed to the fair band.
             </p>
           </div>
-          <p className="mt-auto pt-8 text-[11.5px] leading-relaxed text-white/45">
+          <div className="mt-6 border-t border-white/20 pt-4 text-[11.5px] leading-relaxed text-white/60">
             Modeled at quota level from per-rep pipeline coverage. Full redistribution scenarios available in Capacity
             Analysis.
-          </p>
+          </div>
         </div>
       </section>
 
       {/* Metric strip */}
       <section className="flex flex-wrap gap-3">
-        <MetricTile label={`${fy} Target`} metric={target} caption="Top-down · company plan" />
-        <MetricTile label="Deployed Quota" metric={deployed} caption="Sum of rep quotas" />
-        <MetricTile label="Over-Assignment" metric={over} caption="Cushion vs target" />
-        <MetricTile label="Overloaded Reps" metric={overloaded} caption="Above sustainable ceiling" />
+        <MetricTile
+          label={`${fy} Target`}
+          rightHeader="COMPANY PLAN"
+          metric={target}
+          caption="Top-down · company plan"
+          bottomCaption="6-QUARTER TRAJECTORY"
+          accentColor="#3b75c4"
+        />
+        <MetricTile
+          label="Deployed Quota"
+          rightHeader="SUM OF REPS"
+          metric={deployed}
+          caption="Sum of rep quotas"
+          bottomCaption="GROWING GAP VS TARGET"
+          accentColor="#c8922c"
+        />
+        <MetricTile
+          label="Over-Assignment"
+          rightHeader="CUSHION VS TARGET"
+          metric={over}
+          caption="Over-assignment cushion"
+          bottomCaption="6-QUARTER YTD"
+          accentColor="#e26a6a"
+        />
+        <MetricTile
+          label="Overloaded Reps"
+          rightHeader="SUSTAINABLE CEILING"
+          metric={overloaded}
+          caption="Above sustainable ceiling"
+          bottomCaption="WEEKLY FLAG COUNT"
+          accentColor="#3b75c4"
+        />
       </section>
 
       {/* Findings this period */}

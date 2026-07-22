@@ -26,31 +26,37 @@ export default function ReportTabs({
   return (
     <nav className="sticky top-[61px] z-20 -mx-5 mt-1 border-b border-slate-200 bg-[#f9fafb]/90 px-5 backdrop-blur sm:-mx-8 sm:px-8">
       <div className="flex flex-col gap-y-1 lg:flex-row lg:items-center lg:justify-between">
-        <div className="flex flex-wrap items-center gap-x-6 gap-y-1">
+        <div className="flex flex-wrap items-center gap-x-2">
           {TABS.map((t, i) => {
             const active = mode === t.id;
             return (
               <button
                 key={t.id}
                 onClick={() => onMode(t.id)}
-                className={`group relative flex items-center gap-2 whitespace-nowrap py-3 text-[13px] font-semibold transition-colors ${
-                  active ? "text-navy" : "text-slate-400 hover:text-slate-600"
+                className={`group relative flex items-center gap-2 whitespace-nowrap px-3.5 py-2.5 rounded-t-lg text-[13px] font-semibold transition-all ${
+                  active
+                    ? "bg-[#edf4fc] text-[#3b75c4]"
+                    : "text-slate-500 hover:bg-[#edf4fc] hover:text-[#3b75c4]"
                 }`}
               >
-                <span className={`font-mono text-[11px] ${active ? "text-brand-dark" : "text-slate-300"}`}>
+                <span
+                  className={`font-mono text-[11px] transition-colors ${
+                    active
+                      ? "text-[#3b75c4]"
+                      : "text-slate-400 group-hover:text-[#7d99b8]"
+                  }`}
+                >
                   {String(i + 1).padStart(2, "0")}
                 </span>
-                {t.label}
+                <span>{t.label}</span>
                 {t.id === "executive" && execBadge != null && execBadge > 0 && (
                   <span className="rounded-full bg-flag-text/15 px-1.5 text-[10px] font-bold text-flag-text">
                     {execBadge}
                   </span>
                 )}
-                <span
-                  className={`absolute inset-x-0 -bottom-px h-0.5 rounded-full transition-opacity ${
-                    active ? "bg-navy opacity-100" : "opacity-0"
-                  }`}
-                />
+                {active && (
+                  <span className="absolute inset-x-0 bottom-0 h-[2.5px] bg-[#3b75c4] rounded-t" />
+                )}
               </button>
             );
           })}
